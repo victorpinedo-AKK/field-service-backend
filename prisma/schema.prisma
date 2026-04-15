@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  admin
+  dispatcher
+  installer
+  delivery_lead
+}
+
+enum TeamType {
+  delivery
+  installation
+  hybrid
+}
+
+enum JobType {
+  delivery
+  installation
+  service
+  repair
+}
+
+enum JobStatus {
+  new
+  awaiting_shipment
+  shipped
+  ready_to_schedule
+  scheduled
+  dispatched
+  on_site
+  completed
+  follow_up_required
+  rescheduled
+  cancelled
+}
+
+enum Division {
+  construction
+  hotshots
+  sales
+  trucking
+}
+
+model User {
+  id            String                 @id @default(uuid())
+  firstName     String
+  lastName      String
+  email         String                 @unique
+  passwordHash  String
+  role          UserRole
+  isActive      Boolean                @default(true)
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+  assignments   WorkOrderAssignment[]
+}
+
+model Team {
+  id          String                 @id @default(uuid())
+  name        String
+  teamType    TeamType
+  isActive    Boolean                @default(true)
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+  assignments WorkOrderAssignment[]
+}
+
+model Customer {
+  id          String      @id @default(uuid())
+  fullName    String
+  email       String?
+  phone       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  addresses   Address[]
+  workOrders  WorkOrder[]
+}
+
+model Address {
+  id          String      @id @default(uuid())
+  customerId  String?
+  line1       String
+  line2       String?
+  city        String
+  state       String
+  postalCode  String
+  country     String
+  accessNotes String?
+  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  workOrders  WorkOrder[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+model WorkOrderNote {
+  id              String    @id @default(uuid())
+  workOrderId     String
+  noteType        String
+  body            String
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+model WorkOrderMedia {
+  id              String    @id @default(uuid())
+  workOrderId     String
+  mediaType       String
+  storageProvider String
+  objectKey       String
+  bucketName      String
+  mimeType        String?
+  originalFileName String?
+  fileSizeBytes   Int?
+  createdByUserId String?
+  createdAt       DateTime  @default(now())
+  deletedAt       DateTime?
+  deletedByUserId String?
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+
+model WorkOrder {
+  id                String                 @id @default(uuid())
+  workOrderNumber   String                 @unique
+  customerId        String
+  addressId         String
+  jobType           JobType
+  division          Division                 @default(construction)
+  internalStatus    JobStatus
+  priority          String                 @default("normal")
+  scheduledStartAt  DateTime?
+  scheduledEndAt    DateTime?
+  dispatcherNotes   String?
+  accessNotes       String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+  customer          Customer               @relation(fields: [customerId], references: [id])
+  address           Address                @relation(fields: [addressId], references: [id])
+  assignments       WorkOrderAssignment[]
+  hotShotDetails    HotShotDetails?
+  statusHistory     WorkOrderStatusHistory[]
+  notes             WorkOrderNote[]
+  media             WorkOrderMedia[]
+
+  @@index([internalStatus, scheduledStartAt])
+}
+
+model WorkOrderStatusHistory {
+  id              String    @id @default(uuid())
+  workOrderId     String
+  fromStatus      JobStatus?
+  toStatus        JobStatus
+  changedByUserId String?
+  changedAt       DateTime  @default(now())
+  reasonCode      String?
+  notes           String?
+  source          String
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, changedAt])
+}
+
+model HotShotDetails {
+  id                String    @id @default(uuid())
+  workOrderId       String    @unique
+  pickupName        String?
+  pickupPhone       String?
+  pickupAddress1    String
+  pickupAddress2    String?
+  pickupCity        String
+  pickupState       String
+  pickupPostalCode  String
+  dropoffName       String?
+  dropoffPhone      String?
+  dropoffAddress1   String
+  dropoffAddress2   String?
+  dropoffCity       String
+  dropoffState      String
+  dropoffPostalCode String
+  urgency           String    @default("normal")
+  acceptedAt        DateTime?
+  pickedUpAt        DateTime?
+  deliveredAt       DateTime?
+  workOrder         WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+}
+
+model WorkOrderAssignment {
+  id               String     @id @default(uuid())
+  workOrderId      String
+  teamId           String?
+  userId           String?
+  assignmentType   String
+  isActive         Boolean    @default(true)
+  assignedAt       DateTime   @default(now())
+  workOrder        WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  team             Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user             User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, isActive])
+  @@index([teamId, isActive])
+}
