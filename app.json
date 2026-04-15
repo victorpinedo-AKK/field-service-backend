@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "15137933-8af8-4ccf-b81b-95b6e7e976c9"
+      }
+    },
+    "android": {
+      "package": "com.akk.fieldservicebackend"
+    }
+  }
+}
