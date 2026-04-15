@@ -44,7 +44,7 @@ export async function getHotshotJobDetail(
     }
 
     const result = await hotshotsService.getHotshotJobDetail({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });
@@ -71,7 +71,7 @@ export async function createHotshotNote(
     }
 
     const result = await hotshotsService.createHotshotNote({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
       body: typeof req.body?.body === "string" ? req.body.body : "",
@@ -101,7 +101,7 @@ export async function createHotshotMediaUploadUrl(
     }
 
     const result = await hotshotsService.createHotshotMediaUploadUrl({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
       fileName:
@@ -136,7 +136,7 @@ export async function finalizeHotshotMedia(
     }
 
     const result = await hotshotsService.finalizeHotshotMedia({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
       objectKey: typeof req.body?.object_key === "string" ? req.body.object_key : "",
@@ -176,8 +176,8 @@ export async function softDeleteHotshotMedia(
     }
 
     const result = await hotshotsService.softDeleteHotshotMedia({
-      jobId: req.params.jobId,
-      mediaId: req.params.mediaId,
+      jobId: String(req.params.id),
+      mediaId: String(req.params.mediaId),
       userId: req.user.id,
       role: req.user.role,
     });
@@ -204,7 +204,7 @@ export async function acceptHotshotJob(
     }
 
     const result = await hotshotsService.acceptHotshotJob({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });
@@ -231,7 +231,7 @@ export async function releaseHotshotJob(
     }
 
     const result = await hotshotsService.releaseHotshotJob({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });
@@ -258,7 +258,7 @@ export async function pickupHotshotJob(
     }
 
     const result = await hotshotsService.pickupHotshotJob({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });
@@ -285,7 +285,7 @@ export async function deliverHotshotJob(
     }
 
     const result = await hotshotsService.deliverHotshotJob({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });

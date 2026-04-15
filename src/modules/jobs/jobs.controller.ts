@@ -37,7 +37,7 @@ export async function getJobDetail(req: AuthenticatedRequest, res: Response, nex
     }
 
     const result = await jobsService.getJobDetail({
-      jobId: req.params.id,
+      jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
     });
