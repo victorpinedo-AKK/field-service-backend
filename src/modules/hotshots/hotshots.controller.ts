@@ -125,6 +125,42 @@ export async function createHotshotMediaUploadUrl(
   }
 }
 
+export async function uploadHotshotMedia(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    if (!req.file) {
+      throw new AppError("File is required", 400, "INVALID_REQUEST");
+    }
+
+    const result = await hotshotsService.uploadHotshotMedia({
+      jobId: String(req.params.id),
+      userId: req.user.id,
+      role: req.user.role,
+      fileBuffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalFileName: req.file.originalname,
+      fileSizeBytes: req.file.size,
+      mediaType: "photo",
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function finalizeHotshotMedia(
   req: AuthenticatedRequest,
   res: Response,

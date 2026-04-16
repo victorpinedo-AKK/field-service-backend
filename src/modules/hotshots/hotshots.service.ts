@@ -40,6 +40,17 @@ interface CreateHotshotMediaUploadUrlInput {
   mimeType: string;
 }
 
+interface UploadHotshotMediaInput {
+  jobId: string;
+  userId: string;
+  role: string;
+  fileBuffer: Buffer;
+  mimeType: string;
+  originalFileName: string;
+  fileSizeBytes?: number;
+  mediaType?: string;
+}
+
 interface FinalizeHotshotMediaInput {
   jobId: string;
   userId: string;
@@ -342,6 +353,82 @@ export async function createHotshotNote(input: CreateHotshotNoteInput) {
     body: note.body,
     created_by_user_id: note.createdByUserId,
     created_at: note.createdAt,
+  };
+}
+
+export async function uploadHotshotMedia(input: UploadHotshotMediaInput) {
+  assertHotshotRole(input.role);
+
+  const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+      ...(isFieldRole
+        ? {
+            OR: [
+              { internalStatus: JobStatus.ready_to_schedule },
+              {
+                assignments: {
+                  some: {
+                    userId: input.userId,
+                    isActive: true,
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      workOrderNumber: true,
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  const safeFileName = input.originalFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+  const objectKey = `hotshots/${job.workOrderNumber}/${Date.now()}-${safeFileName}`;
+
+  const command = new PutObjectCommand({
+    Bucket: env.R2_BUCKET,
+    Key: objectKey,
+    Body: input.fileBuffer,
+    ContentType: input.mimeType,
+  });
+
+  await r2.send(command);
+
+  const media = await prisma.workOrderMedia.create({
+    data: {
+      workOrderId: job.id,
+      mediaType: input.mediaType ?? "photo",
+      storageProvider: "cloudflare_r2",
+      objectKey,
+      bucketName: env.R2_BUCKET,
+      mimeType: input.mimeType,
+      originalFileName: input.originalFileName,
+      fileSizeBytes: input.fileSizeBytes ?? null,
+      createdByUserId: input.userId,
+    },
+  });
+
+  return {
+    id: media.id,
+    work_order_id: media.workOrderId,
+    work_order_number: job.workOrderNumber,
+    media_type: media.mediaType,
+    object_key: media.objectKey,
+    bucket_name: media.bucketName,
+    mime_type: media.mimeType,
+    original_file_name: media.originalFileName,
+    file_size_bytes: media.fileSizeBytes,
+    created_at: media.createdAt,
+    url: `${env.R2_PUBLIC_BASE_URL}/${media.objectKey}`,
   };
 }
 
