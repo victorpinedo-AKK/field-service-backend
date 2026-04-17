@@ -18,6 +18,12 @@ interface HotshotActionInput {
   role: string;
 }
 
+interface DeliverHotshotJobInput {
+  jobId: string;
+  userId: string;
+  role: string;
+}
+
 interface GetHotshotJobDetailInput {
   jobId: string;
   userId: string;
@@ -75,6 +81,27 @@ function assertHotshotRole(role: string) {
   if (!allowedRoles.includes(role)) {
     throw new AppError("Forbidden", 403, "FORBIDDEN");
   }
+}
+
+async function logWorkOrderEvent(
+  db: typeof prisma,
+  params: {
+    workOrderId: string;
+    eventType: string;
+    label: string;
+    createdByUserId?: string | null;
+    metadata?: Record<string, any>;
+  },
+) {
+  await db.workOrderEvent.create({
+    data: {
+      workOrderId: params.workOrderId,
+      eventType: params.eventType,
+      label: params.label,
+      createdByUserId: params.createdByUserId ?? null,
+      metadata: params.metadata ?? undefined,
+    },
+  });
 }
 
 export async function listHotshotJobs(input: ListHotshotJobsInput) {
@@ -197,11 +224,14 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
         orderBy: { createdAt: "desc" },
       },
       media: {
-  where: {
-    deletedAt: null,
-  },
-  orderBy: { createdAt: "desc" },
-},
+        where: {
+          deletedAt: null,
+        },
+        orderBy: { createdAt: "desc" },
+      },
+      events: {
+        orderBy: { createdAt: "asc" },
+      },
       assignments: {
         where: { isActive: true },
         include: {
@@ -272,6 +302,14 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
           role: job.assignments[0].user.role,
         }
       : null,
+    timeline: job.events.map((event) => ({
+      id: event.id,
+      event_type: event.eventType,
+      label: event.label,
+      metadata: event.metadata,
+      created_by_user_id: event.createdByUserId,
+      created_at: event.createdAt,
+    })),
     notes: job.notes.map((note) => ({
       id: note.id,
       note_type: note.noteType,
@@ -345,6 +383,16 @@ export async function createHotshotNote(input: CreateHotshotNoteInput) {
     },
   });
 
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "note_added",
+    label: "Note Added",
+    createdByUserId: input.userId,
+    metadata: {
+      noteType: note.noteType,
+    },
+  });
+
   return {
     id: note.id,
     work_order_id: note.workOrderId,
@@ -414,6 +462,20 @@ export async function uploadHotshotMedia(input: UploadHotshotMediaInput) {
       originalFileName: input.originalFileName,
       fileSizeBytes: input.fileSizeBytes ?? null,
       createdByUserId: input.userId,
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType:
+      input.mediaType === "signature" ? "signature_uploaded" : "photo_uploaded",
+    label: input.mediaType === "signature" ? "Signature Captured" : "Photo Added",
+    createdByUserId: input.userId,
+    metadata: {
+      mediaId: media.id,
+      mediaType: media.mediaType,
+      objectKey: media.objectKey,
+      fileName: media.originalFileName,
     },
   });
 
@@ -537,6 +599,20 @@ export async function finalizeHotshotMedia(input: FinalizeHotshotMediaInput) {
     },
   });
 
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType:
+      input.mediaType === "signature" ? "signature_uploaded" : "photo_uploaded",
+    label: input.mediaType === "signature" ? "Signature Captured" : "Photo Added",
+    createdByUserId: input.userId,
+    metadata: {
+      mediaId: media.id,
+      mediaType: media.mediaType,
+      objectKey: media.objectKey,
+      fileName: media.originalFileName,
+    },
+  });
+
   return {
     id: media.id,
     work_order_id: media.workOrderId,
@@ -558,31 +634,26 @@ export async function softDeleteHotshotMedia(
   assertHotshotRole(input.role);
 
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
       id: input.jobId,
       division: "hotshots",
-      ...(isFieldRole
-        ? {
-            OR: [
-              { internalStatus: JobStatus.ready_to_schedule },
-              {
-                assignments: {
-                  some: {
-                    userId: input.userId,
-                    isActive: true,
-                  },
-                },
-              },
-            ],
-          }
-        : {}),
     },
     select: {
       id: true,
       workOrderNumber: true,
       internalStatus: true,
+      assignments: {
+        where: {
+          userId: input.userId,
+          isActive: true,
+        },
+        select: {
+          id: true,
+        },
+      },
     },
   });
 
@@ -590,15 +661,24 @@ export async function softDeleteHotshotMedia(
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
   }
 
-  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
+  const isAssignedToUser = job.assignments.length > 0;
 
-if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
-  throw new AppError(
-    "Only admin or dispatcher can delete media after delivery is completed",
-    409,
-    "INVALID_STATUS_TRANSITION",
-  );
-}
+  if (isFieldRole) {
+    const canAccess =
+      job.internalStatus === JobStatus.ready_to_schedule || isAssignedToUser;
+
+    if (!canAccess) {
+      throw new AppError("Forbidden", 403, "FORBIDDEN");
+    }
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Only admin or dispatcher can delete media after delivery is completed",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
+  }
 
   const media = await prisma.workOrderMedia.findFirst({
     where: {
@@ -617,6 +697,17 @@ if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
     data: {
       deletedAt: new Date(),
       deletedByUserId: input.userId,
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "media_deleted",
+    label: "Media Deleted",
+    createdByUserId: input.userId,
+    metadata: {
+      mediaId: updated.id,
+      mediaType: media.mediaType,
     },
   });
 
@@ -664,6 +755,13 @@ export async function acceptHotshotJob(input: HotshotActionInput) {
       data: {
         internalStatus: JobStatus.scheduled,
       },
+    });
+
+    await logWorkOrderEvent(tx as typeof prisma, {
+      workOrderId: job.id,
+      eventType: "job_accepted",
+      label: "Job Accepted",
+      createdByUserId: input.userId,
     });
 
     await tx.workOrderAssignment.updateMany({
@@ -747,6 +845,13 @@ export async function releaseHotshotJob(input: HotshotActionInput) {
       },
     });
 
+    await logWorkOrderEvent(tx as typeof prisma, {
+      workOrderId: job.id,
+      eventType: "job_released",
+      label: "Job Released",
+      createdByUserId: input.userId,
+    });
+
     await tx.workOrderAssignment.updateMany({
       where: {
         workOrderId: job.id,
@@ -814,6 +919,13 @@ export async function pickupHotshotJob(input: HotshotActionInput) {
       },
     });
 
+    await logWorkOrderEvent(tx as typeof prisma, {
+      workOrderId: job.id,
+      eventType: "job_picked_up",
+      label: "Picked Up",
+      createdByUserId: input.userId,
+    });
+
     if (job.hotShotDetails) {
       await tx.hotShotDetails.update({
         where: { workOrderId: job.id },
@@ -831,22 +943,23 @@ export async function pickupHotshotJob(input: HotshotActionInput) {
   };
 }
 
-export async function deliverHotshotJob(input: HotshotActionInput) {
+export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
   assertHotshotRole(input.role);
+
+  const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
       id: input.jobId,
       division: "hotshots",
+    },
+    include: {
       assignments: {
-        some: {
+        where: {
           userId: input.userId,
           isActive: true,
         },
       },
-    },
-    include: {
-      hotShotDetails: true,
     },
   });
 
@@ -854,35 +967,55 @@ export async function deliverHotshotJob(input: HotshotActionInput) {
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
   }
 
+  const isAssignedToUser = job.assignments.length > 0;
+
+  if (isFieldRole && !isAssignedToUser) {
+    throw new AppError("Forbidden", 403, "FORBIDDEN");
+  }
+
   if (job.internalStatus !== JobStatus.dispatched) {
     throw new AppError(
-      "Job cannot be delivered from current status",
+      "Job must be in dispatched status before delivery",
       409,
       "INVALID_STATUS_TRANSITION",
     );
   }
 
-  await prisma.$transaction(async (tx) => {
-    await tx.workOrder.update({
-      where: { id: job.id },
-      data: {
-        internalStatus: JobStatus.completed,
-      },
-    });
+  const photoCount = await prisma.workOrderMedia.count({
+    where: {
+      workOrderId: job.id,
+      deletedAt: null,
+      mediaType: "photo",
+    },
+  });
 
-    if (job.hotShotDetails) {
-      await tx.hotShotDetails.update({
-        where: { workOrderId: job.id },
-        data: {
-          deliveredAt: new Date(),
-        },
-      });
-    }
+  if (photoCount === 0) {
+    throw new AppError(
+      "At least one delivery photo is required before completing this job",
+      409,
+      "DELIVERY_PHOTO_REQUIRED",
+    );
+  }
+
+  const updated = await prisma.workOrder.update({
+    where: { id: job.id },
+    data: {
+      internalStatus: JobStatus.completed,
+      completedAt: new Date(),
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "job_delivered",
+    label: "Delivered",
+    createdByUserId: input.userId,
   });
 
   return {
-    id: job.id,
-    work_order_number: job.workOrderNumber,
-    status: "delivered",
+    id: updated.id,
+    work_order_number: updated.workOrderNumber,
+    status: updated.internalStatus,
+    completed_at: updated.completedAt,
   };
 }

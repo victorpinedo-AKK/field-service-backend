@@ -147,7 +147,8 @@ export async function uploadHotshotMedia(
       mimeType: req.file.mimetype,
       originalFileName: req.file.originalname,
       fileSizeBytes: req.file.size,
-      mediaType: "photo",
+      mediaType:
+        typeof req.body?.media_type === "string" ? req.body.media_type : "photo",
     });
 
     return res.status(201).json({
@@ -175,7 +176,8 @@ export async function finalizeHotshotMedia(
       jobId: String(req.params.id),
       userId: req.user.id,
       role: req.user.role,
-      objectKey: typeof req.body?.object_key === "string" ? req.body.object_key : "",
+      objectKey:
+        typeof req.body?.object_key === "string" ? req.body.object_key : "",
       mimeType:
         typeof req.body?.mime_type === "string" ? req.body.mime_type : undefined,
       originalFileName:
@@ -211,9 +213,12 @@ export async function softDeleteHotshotMedia(
       throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
+    const jobId = req.params.jobId || req.params.id;
+    const mediaId = req.params.mediaId;
+
     const result = await hotshotsService.softDeleteHotshotMedia({
-      jobId: String(req.params.id),
-      mediaId: String(req.params.mediaId),
+      jobId: String(jobId),
+      mediaId: String(mediaId),
       userId: req.user.id,
       role: req.user.role,
     });

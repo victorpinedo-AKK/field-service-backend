@@ -127,6 +127,20 @@ model WorkOrderMedia {
   @@index([workOrderId, createdAt])
 }
 
+model WorkOrderEvent {
+  id              String   @id @default(uuid())
+  workOrderId     String
+  eventType       String
+  label           String
+  metadata        Json?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+
 model WorkOrder {
   id                String                 @id @default(uuid())
   workOrderNumber   String                 @unique
@@ -149,6 +163,7 @@ model WorkOrder {
   statusHistory     WorkOrderStatusHistory[]
   notes             WorkOrderNote[]
   media             WorkOrderMedia[]
+  events            WorkOrderEvent[]
 
   @@index([internalStatus, scheduledStartAt])
 }
