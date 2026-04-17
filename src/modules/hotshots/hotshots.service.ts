@@ -960,6 +960,7 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
           isActive: true,
         },
       },
+      hotShotDetails: true,
     },
   });
 
@@ -997,25 +998,34 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
     );
   }
 
-  const updated = await prisma.workOrder.update({
-    where: { id: job.id },
-    data: {
-      internalStatus: JobStatus.completed,
-      completedAt: new Date(),
-    },
-  });
+  await prisma.$transaction(async (tx) => {
+    await tx.workOrder.update({
+      where: { id: job.id },
+      data: {
+        internalStatus: JobStatus.completed,
+      },
+    });
 
-  await logWorkOrderEvent(prisma, {
-    workOrderId: job.id,
-    eventType: "job_delivered",
-    label: "Delivered",
-    createdByUserId: input.userId,
+    if (job.hotShotDetails) {
+      await tx.hotShotDetails.update({
+        where: { workOrderId: job.id },
+        data: {
+          deliveredAt: new Date(),
+        },
+      });
+    }
+
+    await logWorkOrderEvent(tx as typeof prisma, {
+      workOrderId: job.id,
+      eventType: "job_delivered",
+      label: "Delivered",
+      createdByUserId: input.userId,
+    });
   });
 
   return {
-    id: updated.id,
-    work_order_number: updated.workOrderNumber,
-    status: updated.internalStatus,
-    completed_at: updated.completedAt,
+    id: job.id,
+    work_order_number: job.workOrderNumber,
+    status: JobStatus.completed,
   };
 }
