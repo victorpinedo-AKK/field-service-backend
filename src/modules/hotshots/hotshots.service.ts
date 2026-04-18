@@ -1,4 +1,4 @@
-import { JobStatus } from "@prisma/client";
+import { JobStatus, Prisma } from "@prisma/client";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { prisma } from "../../config/db";
@@ -115,7 +115,7 @@ function assertHotshotCreateRole(role: string) {
   }
 }
 
-async function generateNextHotshotNumber(tx: typeof prisma) {
+async function generateNextHotshotNumber(tx: Prisma.TransactionClient) {
   const latest = await tx.workOrder.findFirst({
     where: {
       division: "hotshots",
@@ -146,7 +146,7 @@ async function generateNextHotshotNumber(tx: typeof prisma) {
 }
 
 async function logWorkOrderEvent(
-  db: typeof prisma,
+  db: Prisma.TransactionClient | typeof prisma,
   params: {
     workOrderId: string;
     eventType: string;
