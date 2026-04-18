@@ -5,9 +5,9 @@ import { AppError } from "../../common/errors/AppError";
 const ALLOWED_ROLES = ["admin", "dispatcher", "installer", "delivery_lead"];
 
 function assertAdminOrDispatcher(role: string) {
-  if (!["admin", "dispatcher"].includes(role)) {
-    throw new AppError("Forbidden", 403, "FORBIDDEN");
-  }
+  if (role !== "admin") {
+  throw new AppError("Forbidden", 403, "FORBIDDEN");
+}
 }
 
 interface CreateUserInput {

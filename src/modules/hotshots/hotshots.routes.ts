@@ -3,6 +3,7 @@ import { authMiddleware } from "../../common/middleware/authMiddleware";
 import * as hotshotsController from "./hotshots.controller";
 import { upload } from "../../middleware/upload";
 
+
 const router = Router();
 
 console.log("HOTSHOTS ROUTES LOADED");

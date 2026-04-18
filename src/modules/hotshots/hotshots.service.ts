@@ -110,7 +110,7 @@ function assertHotshotRole(role: string) {
 }
 
 function assertHotshotCreateRole(role: string) {
-  if (!["admin", "dispatcher"].includes(role)) {
+  if (role !== "admin") {
     throw new AppError("Forbidden", 403, "FORBIDDEN");
   }
 }
@@ -143,6 +143,27 @@ async function generateNextHotshotNumber(tx: typeof prisma) {
 
   const nextNumber = Number(match[1]) + 1;
   return `HS-${String(nextNumber).padStart(5, "0")}`;
+}
+
+async function logWorkOrderEvent(
+  db: typeof prisma,
+  params: {
+    workOrderId: string;
+    eventType: string;
+    label: string;
+    createdByUserId?: string | null;
+    metadata?: Record<string, any>;
+  },
+) {
+  await db.workOrderEvent.create({
+    data: {
+      workOrderId: params.workOrderId,
+      eventType: params.eventType,
+      label: params.label,
+      createdByUserId: params.createdByUserId ?? null,
+      metadata: params.metadata ?? undefined,
+    },
+  });
 }
 
 export async function createHotshotJob(input: CreateHotshotJobInput) {
@@ -243,7 +264,15 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
       },
     });
 
-
+    await logWorkOrderEvent(tx as typeof prisma, {
+      workOrderId: workOrder.id,
+      eventType: "job_created",
+      label: "Hotshot Created",
+      createdByUserId: input.userId,
+      metadata: {
+        workOrderNumber,
+      },
+    });
 
     return {
       id: workOrder.id,
@@ -285,27 +314,6 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
   return result;
 }
 
-async function logWorkOrderEvent(
-  db: typeof prisma,
-  params: {
-    workOrderId: string;
-    eventType: string;
-    label: string;
-    createdByUserId?: string | null;
-    metadata?: Record<string, any>;
-  },
-) {
-  await db.workOrderEvent.create({
-    data: {
-      workOrderId: params.workOrderId,
-      eventType: params.eventType,
-      label: params.label,
-      createdByUserId: params.createdByUserId ?? null,
-      metadata: params.metadata ?? undefined,
-    },
-  });
-}
-
 export async function listHotshotJobs(input: ListHotshotJobsInput) {
   assertHotshotRole(input.role);
 
@@ -334,9 +342,7 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
           }
         : {}),
     },
-    orderBy: [
-      { createdAt: "desc" },
-    ],
+    orderBy: [{ createdAt: "desc" }],
     include: {
       customer: true,
       hotShotDetails: true,
@@ -356,47 +362,48 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
   });
 
   return jobs.map((job) => ({
-  id: job.id,
-  work_order_number: job.workOrderNumber,
-  division: job.division,
-  internal_status: job.internalStatus,
-  customer: {
-    id: job.customer.id,
-    full_name: job.customer.fullName,
-    phone: job.customer.phone,
-  },
-  pickup: job.hotShotDetails
-    ? {
-        name: job.hotShotDetails.pickupName,
-        phone: job.hotShotDetails.pickupPhone,
-        address_1: job.hotShotDetails.pickupAddress1,
-        city: job.hotShotDetails.pickupCity,
-        state: job.hotShotDetails.pickupState,
-        postal_code: job.hotShotDetails.pickupPostalCode,
-      }
-    : null,
-  dropoff: job.hotShotDetails
-    ? {
-        name: job.hotShotDetails.dropoffName,
-        phone: job.hotShotDetails.dropoffPhone,
-        address_1: job.hotShotDetails.dropoffAddress1,
-        city: job.hotShotDetails.dropoffCity,
-        state: job.hotShotDetails.dropoffState,
-        postal_code: job.hotShotDetails.dropoffPostalCode,
-      }
-    : null,
-  urgency: job.hotShotDetails?.urgency ?? "normal",
-  accepted_at: job.hotShotDetails?.acceptedAt ?? null,
-  picked_up_at: job.hotShotDetails?.pickedUpAt ?? null,
-  delivered_at: job.hotShotDetails?.deliveredAt ?? null,
-  assignee: job.assignments[0]?.user
-    ? {
-        id: job.assignments[0].user.id,
-        first_name: job.assignments[0].user.firstName,
-        last_name: job.assignments[0].user.lastName,
-      }
-    : null,
-}));
+    id: job.id,
+    work_order_number: job.workOrderNumber,
+    division: job.division,
+    internal_status: job.internalStatus,
+    customer: {
+      id: job.customer.id,
+      full_name: job.customer.fullName,
+      phone: job.customer.phone,
+    },
+    pickup: job.hotShotDetails
+      ? {
+          name: job.hotShotDetails.pickupName,
+          phone: job.hotShotDetails.pickupPhone,
+          address_1: job.hotShotDetails.pickupAddress1,
+          city: job.hotShotDetails.pickupCity,
+          state: job.hotShotDetails.pickupState,
+          postal_code: job.hotShotDetails.pickupPostalCode,
+        }
+      : null,
+    dropoff: job.hotShotDetails
+      ? {
+          name: job.hotShotDetails.dropoffName,
+          phone: job.hotShotDetails.dropoffPhone,
+          address_1: job.hotShotDetails.dropoffAddress1,
+          city: job.hotShotDetails.dropoffCity,
+          state: job.hotShotDetails.dropoffState,
+          postal_code: job.hotShotDetails.dropoffPostalCode,
+        }
+      : null,
+    urgency: job.hotShotDetails?.urgency ?? "normal",
+    accepted_at: job.hotShotDetails?.acceptedAt ?? null,
+    picked_up_at: job.hotShotDetails?.pickedUpAt ?? null,
+    delivered_at: job.hotShotDetails?.deliveredAt ?? null,
+    assignee: job.assignments[0]?.user
+      ? {
+          id: job.assignments[0].user.id,
+          first_name: job.assignments[0].user.firstName,
+          last_name: job.assignments[0].user.lastName,
+        }
+      : null,
+  }));
+}
 
 export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
   assertHotshotRole(input.role);

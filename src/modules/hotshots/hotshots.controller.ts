@@ -323,12 +323,13 @@ export async function softDeleteHotshotMedia(
       throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const jobId = req.params.jobId || req.params.id;
-    const mediaId = req.params.mediaId;
+    if (req.user.role !== "admin") {
+      throw new AppError("Only admins can delete media", 403, "FORBIDDEN");
+    }
 
     const result = await hotshotsService.softDeleteHotshotMedia({
-      jobId: String(jobId),
-      mediaId: String(mediaId),
+      jobId: String(req.params.jobId || req.params.id),
+      mediaId: String(req.params.mediaId),
       userId: req.user.id,
       role: req.user.role,
     });
