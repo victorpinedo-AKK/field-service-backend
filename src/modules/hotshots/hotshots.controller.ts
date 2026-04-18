@@ -3,6 +3,116 @@ import { AppError } from "../../common/errors/AppError";
 import type { AuthenticatedRequest } from "../../common/middleware/authMiddleware";
 import * as hotshotsService from "./hotshots.service";
 
+export async function createHotshotJob(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.createHotshotJob({
+      userId: req.user.id,
+      role: req.user.role,
+      customerFullName:
+        typeof req.body?.customer_full_name === "string"
+          ? req.body.customer_full_name
+          : "",
+      customerEmail:
+        typeof req.body?.customer_email === "string"
+          ? req.body.customer_email
+          : undefined,
+      customerPhone:
+        typeof req.body?.customer_phone === "string"
+          ? req.body.customer_phone
+          : undefined,
+      pickupName:
+        typeof req.body?.pickup_name === "string"
+          ? req.body.pickup_name
+          : undefined,
+      pickupPhone:
+        typeof req.body?.pickup_phone === "string"
+          ? req.body.pickup_phone
+          : undefined,
+      pickupAddress1:
+        typeof req.body?.pickup_address_1 === "string"
+          ? req.body.pickup_address_1
+          : "",
+      pickupAddress2:
+        typeof req.body?.pickup_address_2 === "string"
+          ? req.body.pickup_address_2
+          : undefined,
+      pickupCity:
+        typeof req.body?.pickup_city === "string"
+          ? req.body.pickup_city
+          : "",
+      pickupState:
+        typeof req.body?.pickup_state === "string"
+          ? req.body.pickup_state
+          : "",
+      pickupPostalCode:
+        typeof req.body?.pickup_postal_code === "string"
+          ? req.body.pickup_postal_code
+          : "",
+      dropoffName:
+        typeof req.body?.dropoff_name === "string"
+          ? req.body.dropoff_name
+          : undefined,
+      dropoffPhone:
+        typeof req.body?.dropoff_phone === "string"
+          ? req.body.dropoff_phone
+          : undefined,
+      dropoffAddress1:
+        typeof req.body?.dropoff_address_1 === "string"
+          ? req.body.dropoff_address_1
+          : "",
+      dropoffAddress2:
+        typeof req.body?.dropoff_address_2 === "string"
+          ? req.body.dropoff_address_2
+          : undefined,
+      dropoffCity:
+        typeof req.body?.dropoff_city === "string"
+          ? req.body.dropoff_city
+          : "",
+      dropoffState:
+        typeof req.body?.dropoff_state === "string"
+          ? req.body.dropoff_state
+          : "",
+      dropoffPostalCode:
+        typeof req.body?.dropoff_postal_code === "string"
+          ? req.body.dropoff_postal_code
+          : "",
+      urgency:
+        typeof req.body?.urgency === "string"
+          ? req.body.urgency
+          : undefined,
+      priority:
+        typeof req.body?.priority === "string"
+          ? req.body.priority
+          : undefined,
+      dispatcherNotes:
+        typeof req.body?.dispatcher_notes === "string"
+          ? req.body.dispatcher_notes
+          : undefined,
+      accessNotes:
+        typeof req.body?.access_notes === "string"
+          ? req.body.access_notes
+          : undefined,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listHotshotJobs(
   req: AuthenticatedRequest,
   res: Response,

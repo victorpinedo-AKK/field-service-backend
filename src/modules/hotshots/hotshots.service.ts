@@ -6,6 +6,32 @@ import { AppError } from "../../common/errors/AppError";
 import { env } from "../../config/env";
 import { r2 } from "../../config/r2";
 
+interface CreateHotshotJobInput {
+  userId: string;
+  role: string;
+  customerFullName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  pickupName?: string;
+  pickupPhone?: string;
+  pickupAddress1: string;
+  pickupAddress2?: string;
+  pickupCity: string;
+  pickupState: string;
+  pickupPostalCode: string;
+  dropoffName?: string;
+  dropoffPhone?: string;
+  dropoffAddress1: string;
+  dropoffAddress2?: string;
+  dropoffCity: string;
+  dropoffState: string;
+  dropoffPostalCode: string;
+  urgency?: string;
+  priority?: string;
+  dispatcherNotes?: string;
+  accessNotes?: string;
+}
+
 interface ListHotshotJobsInput {
   userId: string;
   role: string;
@@ -81,6 +107,182 @@ function assertHotshotRole(role: string) {
   if (!allowedRoles.includes(role)) {
     throw new AppError("Forbidden", 403, "FORBIDDEN");
   }
+}
+
+function assertHotshotCreateRole(role: string) {
+  if (!["admin", "dispatcher"].includes(role)) {
+    throw new AppError("Forbidden", 403, "FORBIDDEN");
+  }
+}
+
+async function generateNextHotshotNumber(tx: typeof prisma) {
+  const latest = await tx.workOrder.findFirst({
+    where: {
+      division: "hotshots",
+      workOrderNumber: {
+        startsWith: "HS-",
+      },
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      workOrderNumber: true,
+    },
+  });
+
+  if (!latest?.workOrderNumber) {
+    return "HS-10001";
+  }
+
+  const match = latest.workOrderNumber.match(/^HS-(\d+)$/);
+
+  if (!match) {
+    return "HS-10001";
+  }
+
+  const nextNumber = Number(match[1]) + 1;
+  return `HS-${String(nextNumber).padStart(5, "0")}`;
+}
+
+export async function createHotshotJob(input: CreateHotshotJobInput) {
+  assertHotshotCreateRole(input.role);
+
+  if (!input.customerFullName.trim()) {
+    throw new AppError("Customer name is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.pickupAddress1.trim()) {
+    throw new AppError("Pickup address is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.pickupCity.trim()) {
+    throw new AppError("Pickup city is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.pickupState.trim()) {
+    throw new AppError("Pickup state is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.pickupPostalCode.trim()) {
+    throw new AppError("Pickup postal code is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.dropoffAddress1.trim()) {
+    throw new AppError("Dropoff address is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.dropoffCity.trim()) {
+    throw new AppError("Dropoff city is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.dropoffState.trim()) {
+    throw new AppError("Dropoff state is required", 400, "INVALID_REQUEST");
+  }
+
+  if (!input.dropoffPostalCode.trim()) {
+    throw new AppError("Dropoff postal code is required", 400, "INVALID_REQUEST");
+  }
+
+  const result = await prisma.$transaction(async (tx) => {
+    const workOrderNumber = await generateNextHotshotNumber(tx);
+
+    const customer = await tx.customer.create({
+      data: {
+        fullName: input.customerFullName.trim(),
+        email: input.customerEmail?.trim() || null,
+        phone: input.customerPhone?.trim() || null,
+      },
+    });
+
+    const address = await tx.address.create({
+      data: {
+        customerId: customer.id,
+        line1: input.dropoffAddress1.trim(),
+        line2: input.dropoffAddress2?.trim() || null,
+        city: input.dropoffCity.trim(),
+        state: input.dropoffState.trim(),
+        postalCode: input.dropoffPostalCode.trim(),
+        country: "US",
+        accessNotes: input.accessNotes?.trim() || null,
+      },
+    });
+
+    const workOrder = await tx.workOrder.create({
+      data: {
+        workOrderNumber,
+        customerId: customer.id,
+        addressId: address.id,
+        jobType: "delivery",
+        division: "hotshots",
+        internalStatus: "ready_to_schedule",
+        priority: input.priority?.trim() || "normal",
+        dispatcherNotes: input.dispatcherNotes?.trim() || null,
+        accessNotes: input.accessNotes?.trim() || null,
+      },
+    });
+
+    const hotShotDetails = await tx.hotShotDetails.create({
+      data: {
+        workOrderId: workOrder.id,
+        pickupName: input.pickupName?.trim() || null,
+        pickupPhone: input.pickupPhone?.trim() || null,
+        pickupAddress1: input.pickupAddress1.trim(),
+        pickupAddress2: input.pickupAddress2?.trim() || null,
+        pickupCity: input.pickupCity.trim(),
+        pickupState: input.pickupState.trim(),
+        pickupPostalCode: input.pickupPostalCode.trim(),
+        dropoffName: input.dropoffName?.trim() || null,
+        dropoffPhone: input.dropoffPhone?.trim() || null,
+        dropoffAddress1: input.dropoffAddress1.trim(),
+        dropoffAddress2: input.dropoffAddress2?.trim() || null,
+        dropoffCity: input.dropoffCity.trim(),
+        dropoffState: input.dropoffState.trim(),
+        dropoffPostalCode: input.dropoffPostalCode.trim(),
+        urgency: input.urgency?.trim() || "normal",
+      },
+    });
+
+    
+
+    return {
+      id: workOrder.id,
+      work_order_number: workOrder.workOrderNumber,
+      division: workOrder.division,
+      internal_status: workOrder.internalStatus,
+      priority: workOrder.priority,
+      dispatcher_notes: workOrder.dispatcherNotes,
+      access_notes: workOrder.accessNotes,
+      customer: {
+        id: customer.id,
+        full_name: customer.fullName,
+        email: customer.email,
+        phone: customer.phone,
+      },
+      pickup: {
+        name: hotShotDetails.pickupName,
+        phone: hotShotDetails.pickupPhone,
+        address_1: hotShotDetails.pickupAddress1,
+        address_2: hotShotDetails.pickupAddress2,
+        city: hotShotDetails.pickupCity,
+        state: hotShotDetails.pickupState,
+        postal_code: hotShotDetails.pickupPostalCode,
+      },
+      dropoff: {
+        name: hotShotDetails.dropoffName,
+        phone: hotShotDetails.dropoffPhone,
+        address_1: hotShotDetails.dropoffAddress1,
+        address_2: hotShotDetails.dropoffAddress2,
+        city: hotShotDetails.dropoffCity,
+        state: hotShotDetails.dropoffState,
+        postal_code: hotShotDetails.dropoffPostalCode,
+      },
+      urgency: hotShotDetails.urgency,
+      created_at: workOrder.createdAt,
+    };
+  });
+
+  return result;
 }
 
 async function logWorkOrderEvent(

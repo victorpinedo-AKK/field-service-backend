@@ -5,6 +5,9 @@ import { upload } from "../../middleware/upload";
 
 const router = Router();
 
+console.log("HOTSHOTS ROUTES LOADED");
+
+router.post("/jobs", authMiddleware, hotshotsController.createHotshotJob);
 router.get("/jobs", authMiddleware, hotshotsController.listHotshotJobs);
 router.get("/jobs/:id", authMiddleware, hotshotsController.getHotshotJobDetail);
 router.post("/jobs/:id/notes", authMiddleware, hotshotsController.createHotshotNote);
@@ -15,6 +18,11 @@ router.post("/jobs/:id/release", authMiddleware, hotshotsController.releaseHotsh
 router.post("/jobs/:id/pickup", authMiddleware, hotshotsController.pickupHotshotJob);
 router.post("/jobs/:id/deliver", authMiddleware, hotshotsController.deliverHotshotJob);
 router.delete("/jobs/:jobId/media/:mediaId", authMiddleware, hotshotsController.softDeleteHotshotMedia);
-router.post("/jobs/:id/media/upload", authMiddleware, upload.single("file"), hotshotsController.uploadHotshotMedia,);
+router.post(
+  "/jobs/:id/media/upload",
+  authMiddleware,
+  upload.single("file"),
+  hotshotsController.uploadHotshotMedia,
+);
 
 export default router;
