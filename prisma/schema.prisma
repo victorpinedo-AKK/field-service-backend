@@ -49,37 +49,39 @@ enum Division {
 }
 
 model User {
-  id            String                 @id @default(uuid())
-  firstName     String
-  lastName      String
-  email         String                 @unique
-  passwordHash  String
-  role          UserRole
-  isActive      Boolean                @default(true)
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
-  assignments   WorkOrderAssignment[]
+  id                      String                @id @default(uuid())
+  firstName               String
+  lastName                String
+  email                   String                @unique
+  passwordHash            String
+  role                    UserRole
+  isActive                Boolean               @default(true)
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  assignments             WorkOrderAssignment[]
+  dispatchMessagesCreated DispatchMessage[]     @relation("DispatchMessageCreatedBy")
+  dispatchMessageReads    DispatchMessageRead[]
 }
 
 model Team {
-  id          String                 @id @default(uuid())
+  id          String                @id @default(uuid())
   name        String
   teamType    TeamType
-  isActive    Boolean                @default(true)
-  createdAt   DateTime               @default(now())
-  updatedAt   DateTime               @updatedAt
+  isActive    Boolean               @default(true)
+  createdAt   DateTime              @default(now())
+  updatedAt   DateTime              @updatedAt
   assignments WorkOrderAssignment[]
 }
 
 model Customer {
-  id          String      @id @default(uuid())
-  fullName    String
-  email       String?
-  phone       String?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  addresses   Address[]
-  workOrders  WorkOrder[]
+  id         String      @id @default(uuid())
+  fullName   String
+  email      String?
+  phone      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  addresses  Address[]
+  workOrders WorkOrder[]
 }
 
 model Address {
@@ -97,6 +99,7 @@ model Address {
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
+
 model WorkOrderNote {
   id              String    @id @default(uuid())
   workOrderId     String
@@ -108,21 +111,22 @@ model WorkOrderNote {
 
   @@index([workOrderId, createdAt])
 }
+
 model WorkOrderMedia {
-  id              String    @id @default(uuid())
-  workOrderId     String
-  mediaType       String
-  storageProvider String
-  objectKey       String
-  bucketName      String
-  mimeType        String?
+  id               String    @id @default(uuid())
+  workOrderId      String
+  mediaType        String
+  storageProvider  String
+  objectKey        String
+  bucketName       String
+  mimeType         String?
   originalFileName String?
-  fileSizeBytes   Int?
-  createdByUserId String?
-  createdAt       DateTime  @default(now())
-  deletedAt       DateTime?
-  deletedByUserId String?
-  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  fileSizeBytes    Int?
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+  deletedByUserId  String?
+  workOrder        WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, createdAt])
 }
@@ -136,49 +140,49 @@ model WorkOrderEvent {
   createdByUserId String?
   createdAt       DateTime @default(now())
 
-  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, createdAt])
 }
 
 model WorkOrder {
-  id                String                 @id @default(uuid())
-  workOrderNumber   String                 @unique
-  customerId        String
-  addressId         String
-  jobType           JobType
-  division          Division                 @default(construction)
-  internalStatus    JobStatus
-  priority          String                 @default("normal")
-  scheduledStartAt  DateTime?
-  scheduledEndAt    DateTime?
-  dispatcherNotes   String?
-  accessNotes       String?
-  createdAt         DateTime               @default(now())
-  updatedAt         DateTime               @updatedAt
-  customer          Customer               @relation(fields: [customerId], references: [id])
-  address           Address                @relation(fields: [addressId], references: [id])
-  assignments       WorkOrderAssignment[]
-  hotShotDetails    HotShotDetails?
-  statusHistory     WorkOrderStatusHistory[]
-  notes             WorkOrderNote[]
-  media             WorkOrderMedia[]
-  events            WorkOrderEvent[]
+  id               String                   @id @default(uuid())
+  workOrderNumber  String                   @unique
+  customerId       String
+  addressId        String
+  jobType          JobType
+  division         Division                 @default(construction)
+  internalStatus   JobStatus
+  priority         String                   @default("normal")
+  scheduledStartAt DateTime?
+  scheduledEndAt   DateTime?
+  dispatcherNotes  String?
+  accessNotes      String?
+  createdAt        DateTime                 @default(now())
+  updatedAt        DateTime                 @updatedAt
+  customer         Customer                 @relation(fields: [customerId], references: [id])
+  address          Address                  @relation(fields: [addressId], references: [id])
+  assignments      WorkOrderAssignment[]
+  hotShotDetails   HotShotDetails?
+  statusHistory    WorkOrderStatusHistory[]
+  notes            WorkOrderNote[]
+  media            WorkOrderMedia[]
+  events           WorkOrderEvent[]
 
   @@index([internalStatus, scheduledStartAt])
 }
 
 model WorkOrderStatusHistory {
-  id              String    @id @default(uuid())
+  id              String     @id @default(uuid())
   workOrderId     String
   fromStatus      JobStatus?
   toStatus        JobStatus
   changedByUserId String?
-  changedAt       DateTime  @default(now())
+  changedAt       DateTime   @default(now())
   reasonCode      String?
   notes           String?
   source          String
-  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder       WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, changedAt])
 }
@@ -208,17 +212,56 @@ model HotShotDetails {
 }
 
 model WorkOrderAssignment {
-  id               String     @id @default(uuid())
-  workOrderId      String
-  teamId           String?
-  userId           String?
-  assignmentType   String
-  isActive         Boolean    @default(true)
-  assignedAt       DateTime   @default(now())
-  workOrder        WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  team             Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  user             User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+  id             String    @id @default(uuid())
+  workOrderId    String
+  teamId         String?
+  userId         String?
+  assignmentType String
+  isActive       Boolean   @default(true)
+  assignedAt     DateTime  @default(now())
+  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([userId, isActive])
   @@index([teamId, isActive])
+}
+
+model DispatchMessage {
+  id       String  @id @default(uuid())
+  title    String
+  body     String
+  priority String  @default("normal")
+  isActive Boolean @default(true)
+
+  targetRole        String?
+  targetUserId      String?
+  targetWorkOrderId String?
+
+  createdByUserId String
+  expiresAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  createdByUser User                  @relation("DispatchMessageCreatedBy", fields: [createdByUserId], references: [id])
+  readReceipts  DispatchMessageRead[]
+
+  @@index([targetRole])
+  @@index([targetUserId])
+  @@index([targetWorkOrderId])
+  @@index([isActive, expiresAt])
+}
+
+model DispatchMessageRead {
+  id                String   @id @default(uuid())
+  dispatchMessageId String
+  userId            String
+  readAt            DateTime @default(now())
+
+  dispatchMessage DispatchMessage @relation(fields: [dispatchMessageId], references: [id], onDelete: Cascade)
+  user            User            @relation(fields: [userId], references: [id])
+
+  @@unique([dispatchMessageId, userId])
+  @@index([userId])
 }

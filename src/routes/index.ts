@@ -3,6 +3,7 @@ import authRoutes from "../modules/auth/auth.routes";
 import jobsRoutes from "../modules/jobs/jobs.routes";
 import hotshotsRoutes from "../modules/hotshots/hotshots.routes";
 import usersRoutes from "../modules/users/users.routes";
+import dispatchMessagesRoutes from "../modules/dispatch-messages/dispatch-messages.routes";
 
 const router = Router();
 
@@ -19,5 +20,6 @@ router.use("/auth", authRoutes);
 router.use("/jobs", jobsRoutes);
 router.use("/hotshots", hotshotsRoutes);
 router.use("/users", usersRoutes);
+router.use("/dispatch-messages", dispatchMessagesRoutes);
 
 export default router;
