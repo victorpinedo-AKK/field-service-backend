@@ -7,5 +7,6 @@ const router = Router();
 router.get("/", authMiddleware, usersController.listUsers);
 router.post("/", authMiddleware, usersController.createUser);
 router.patch("/:id", authMiddleware, usersController.updateUser);
+router.delete("/:id", authMiddleware, usersController.deleteUser);
 
 export default router;

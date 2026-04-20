@@ -109,3 +109,29 @@ export async function updateUser(
     next(error);
   }
 }
+export async function deleteUser(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await usersService.deleteUser({
+      actorRole: req.user.role,
+      actorUserId: req.user.id,
+      userId: String(req.params.id),
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

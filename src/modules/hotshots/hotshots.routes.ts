@@ -25,5 +25,6 @@ router.post(
   upload.single("file"),
   hotshotsController.uploadHotshotMedia,
 );
+router.delete("/jobs/:id", authMiddleware, hotshotsController.deleteHotshotJob);
 
 export default router;

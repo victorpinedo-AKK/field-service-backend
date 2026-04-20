@@ -1,17 +1,54 @@
-import bcrypt from "bcrypt";
-import {
-  PrismaClient,
-  Division,
-  JobStatus,
-  JobType,
-  TeamType,
-  UserRole,
-} from "@prisma/client";
+import { PrismaClient, UserRole } from "@prisma/client";
+import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
 async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
+
+  console.log("🌱 Seeding database...");
+
+  // -----------------------
+  // COMPANY
+  // -----------------------
+  const company = await prisma.company.upsert({
+    where: { name: "AKK Internal" },
+    update: {},
+    create: {
+      name: "AKK Internal",
+      companyType: "internal",
+      division: "hotshots",
+    },
+  });
+
+  // -----------------------
+  // USERS
+  // -----------------------
+  const admin = await prisma.user.upsert({
+    where: { email: "admin@akk.local" },
+    update: {},
+    create: {
+      firstName: "Admin",
+      lastName: "User",
+      email: "admin@akk.local",
+      passwordHash,
+      role: UserRole.admin,
+      companyId: company.id,
+    },
+  });
+
+  const dispatcher = await prisma.user.upsert({
+    where: { email: "dispatcher@akk.local" },
+    update: {},
+    create: {
+      firstName: "Dispatch",
+      lastName: "Manager",
+      email: "dispatcher@akk.local",
+      passwordHash,
+      role: UserRole.dispatcher,
+      companyId: company.id,
+    },
+  });
 
   const installer = await prisma.user.upsert({
     where: { email: "installer@akk.local" },
@@ -22,223 +59,110 @@ async function main() {
       email: "installer@akk.local",
       passwordHash,
       role: UserRole.installer,
+      companyId: company.id,
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "dispatcher@akk.local" },
-    update: {},
-    create: {
-      firstName: "Dispatch",
-      lastName: "Manager",
-      email: "dispatcher@akk.local",
-      passwordHash,
-      role: UserRole.dispatcher,
+  // -----------------------
+  // CUSTOMER
+  // -----------------------
+  const customer = await prisma.customer.create({
+    data: {
+      fullName: "Test Customer",
+      phone: "555-123-4567",
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "victor.pinedo@akkinstallations.com" },
-    update: {},
-    create: {
-      firstName: "Victor",
-      lastName: "Pinedo",
-      email: "victor.pinedo@akkinstallations.com",
-      passwordHash,
-      role: UserRole.admin,
+  const address = await prisma.address.create({
+    data: {
+      line1: "123 Test Street",
+      city: "Austin",
+      state: "TX",
+      postalCode: "73301",
+      country: "USA",
     },
   });
 
-  const team = await prisma.team.upsert({
-    where: { id: "crew-a-team-id" },
-    update: {},
-    create: {
-      id: "crew-a-team-id",
-      name: "Crew A",
-      teamType: TeamType.hybrid,
-    },
-  });
-
-  const customer = await prisma.customer.upsert({
-    where: { id: "john-smith-customer-id" },
-    update: {},
-    create: {
-      id: "john-smith-customer-id",
-      fullName: "John Smith",
-      email: "john@example.com",
-      phone: "+1-555-555-5555",
-    },
-  });
-
-  const address = await prisma.address.upsert({
-    where: { id: "john-smith-address-id" },
-    update: {},
-    create: {
-      id: "john-smith-address-id",
-      customerId: customer.id,
-      line1: "123 Main St",
-      city: "Denver",
-      state: "CO",
-      postalCode: "80202",
-      country: "US",
-      accessNotes: "Gate code 771",
-    },
-  });
-
-  const workOrder = await prisma.workOrder.upsert({
-    where: { workOrderNumber: "WO-10482" },
-    update: {},
-    create: {
-      workOrderNumber: "WO-10482",
+  // -----------------------
+  // WORK ORDER (HOTSHOT)
+  // -----------------------
+  const workOrder = await prisma.workOrder.create({
+    data: {
+      workOrderNumber: "HS-1001",
       customerId: customer.id,
       addressId: address.id,
-      division: Division.construction,
-      jobType: JobType.installation,
-      internalStatus: JobStatus.scheduled,
-      priority: "normal",
-      dispatcherNotes: "Customer prefers rear entrance",
-      accessNotes: "Gate code 771",
+      jobType: "delivery",
+      internalStatus: "dispatched",
+      division: "hotshots",
     },
   });
 
-  await prisma.workOrderAssignment.upsert({
-    where: { id: "wo-10482-primary-assignment" },
-    update: {},
-    create: {
-      id: "wo-10482-primary-assignment",
+  // Active assignment (THIS is critical for "all_active_field")
+  await prisma.workOrderAssignment.create({
+    data: {
       workOrderId: workOrder.id,
       userId: installer.id,
-      teamId: team.id,
-      assignmentType: "primary",
+      assignmentType: "delivery",
       isActive: true,
     },
   });
 
-  const hotshotCustomer = await prisma.customer.upsert({
-    where: { id: "rapid-delivery-customer-id" },
-    update: {},
-    create: {
-      id: "rapid-delivery-customer-id",
-      fullName: "Rapid Delivery Client",
-      email: "rapid@example.com",
-      phone: "+1-555-111-2222",
-    },
-  });
+  // -----------------------
+  // DISPATCH MESSAGES
+  // -----------------------
 
-  const hotshotAddress = await prisma.address.upsert({
-    where: { id: "rapid-delivery-address-id" },
-    update: {},
-    create: {
-      id: "rapid-delivery-address-id",
-      customerId: hotshotCustomer.id,
-      line1: "550 Pickup Ave",
-      city: "Denver",
-      state: "CO",
-      postalCode: "80216",
-      country: "US",
-    },
-  });
-
-  const hotshotWorkOrder = await prisma.workOrder.upsert({
-    where: { workOrderNumber: "HS-10001" },
-    update: {},
-    create: {
-      workOrderNumber: "HS-10001",
-      customerId: hotshotCustomer.id,
-      addressId: hotshotAddress.id,
-      division: Division.hotshots,
-      jobType: JobType.delivery,
-      internalStatus: JobStatus.ready_to_schedule,
-      priority: "high",
-      dispatcherNotes: "Urgent same-day delivery",
-      accessNotes: "Call on arrival",
-    },
-  });
-
-  await prisma.hotShotDetails.upsert({
-    where: { workOrderId: hotshotWorkOrder.id },
-    update: {},
-    create: {
-      workOrderId: hotshotWorkOrder.id,
-      pickupName: "Warehouse A",
-      pickupPhone: "+1-555-333-4444",
-      pickupAddress1: "550 Pickup Ave",
-      pickupCity: "Denver",
-      pickupState: "CO",
-      pickupPostalCode: "80216",
-      dropoffName: "Job Site B",
-      dropoffPhone: "+1-555-888-9999",
-      dropoffAddress1: "880 Delivery Ln",
-      dropoffCity: "Colorado Springs",
-      dropoffState: "CO",
-      dropoffPostalCode: "80903",
-      urgency: "urgent",
-    },
-  });
-
-  const hotshotCustomer2 = await prisma.customer.upsert({
-    where: { id: "express-logistics-customer-id" },
-    update: {},
-    create: {
-      id: "express-logistics-customer-id",
-      fullName: "Express Logistics",
-      email: "dispatch@express.com",
-      phone: "+1-555-222-3333",
-    },
-  });
-
-  const hotshotAddress2 = await prisma.address.upsert({
-    where: { id: "express-logistics-address-id" },
-    update: {},
-    create: {
-      id: "express-logistics-address-id",
-      customerId: hotshotCustomer2.id,
-      line1: "1000 Supply Rd",
-      city: "Denver",
-      state: "CO",
-      postalCode: "80216",
-      country: "US",
-    },
-  });
-
-  const hotshotWorkOrder2 = await prisma.workOrder.upsert({
-    where: { workOrderNumber: "HS-10002" },
-    update: {},
-    create: {
-      workOrderNumber: "HS-10002",
-      customerId: hotshotCustomer2.id,
-      addressId: hotshotAddress2.id,
-      division: Division.hotshots,
-      jobType: JobType.delivery,
-      internalStatus: JobStatus.ready_to_schedule,
+  // 1. ALL ACTIVE FIELD
+  await prisma.dispatchMessage.create({
+    data: {
+      title: "Weekend Prep",
+      body: "Please chock all trucks and leave keys in the lockbox.",
       priority: "normal",
-      dispatcherNotes: "Standard delivery",
-      accessNotes: "Call on arrival",
+      targetScope: "all_active_field",
+      messageCategory: "operations",
+      createdByUserId: dispatcher.id,
     },
   });
 
-  await prisma.hotShotDetails.upsert({
-    where: { workOrderId: hotshotWorkOrder2.id },
-    update: {},
-    create: {
-      workOrderId: hotshotWorkOrder2.id,
-      pickupName: "Distribution Center X",
-      pickupPhone: "+1-555-444-5555",
-      pickupAddress1: "1000 Supply Rd",
-      pickupCity: "Denver",
-      pickupState: "CO",
-      pickupPostalCode: "80216",
-      dropoffName: "Retail Store Y",
-      dropoffPhone: "+1-555-777-8888",
-      dropoffAddress1: "200 Market St",
-      dropoffCity: "Boulder",
-      dropoffState: "CO",
-      dropoffPostalCode: "80301",
-      urgency: "normal",
+  // 2. ROLE (Installers)
+  await prisma.dispatchMessage.create({
+    data: {
+      title: "Installer Reminder",
+      body: "Make sure photos are uploaded before leaving each job.",
+      priority: "normal",
+      targetScope: "role",
+      targetRole: "installer",
+      messageCategory: "operations",
+      createdByUserId: dispatcher.id,
     },
   });
 
-  console.log("Seed complete");
+  // 3. USER (Personal)
+  await prisma.dispatchMessage.create({
+    data: {
+      title: "Route Adjustment",
+      body: "Stop by warehouse before your first drop.",
+      priority: "urgent",
+      targetScope: "user",
+      targetUserId: installer.id,
+      messageCategory: "operations",
+      createdByUserId: dispatcher.id,
+    },
+  });
+
+  // 4. WORK ORDER
+  await prisma.dispatchMessage.create({
+    data: {
+      title: "Job-Specific Note",
+      body: "Customer requested rear entrance delivery.",
+      priority: "normal",
+      targetScope: "work_order",
+      targetWorkOrderId: workOrder.id,
+      messageCategory: "operations",
+      createdByUserId: dispatcher.id,
+    },
+  });
+
+  console.log("✅ Seed complete!");
 }
 
 main()

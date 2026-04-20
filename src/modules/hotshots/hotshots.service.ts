@@ -1242,3 +1242,29 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
     status: JobStatus.completed,
   };
 }
+export async function deleteHotshotJob(input: {
+  jobId: string;
+  role: string;
+}) {
+  if (input.role !== "admin") {
+    throw new AppError("Only admins can delete jobs", 403, "FORBIDDEN");
+  }
+
+  const existing = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  await prisma.workOrder.delete({
+    where: { id: input.jobId },
+  });
+
+  return { success: true };
+}

@@ -289,6 +289,7 @@ export async function updateUser(input: UpdateUserInput) {
       },
     },
   });
+  
 
   return {
     id: user.id,
@@ -310,4 +311,35 @@ export async function updateUser(input: UpdateUserInput) {
     created_at: user.createdAt,
     updated_at: user.updatedAt,
   };
+  
+}
+export async function deleteUser(input: {
+  actorRole: string;
+  userId: string;
+  actorUserId: string;
+}) {
+  assertAdminOnly(input.actorRole);
+
+  if (input.userId === input.actorUserId) {
+    throw new AppError(
+      "You cannot delete your own account",
+      400,
+      "INVALID_REQUEST"
+    );
+  }
+
+  const existing = await prisma.user.findUnique({
+    where: { id: input.userId },
+    select: { id: true },
+  });
+
+  if (!existing) {
+    throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  }
+
+  await prisma.user.delete({
+    where: { id: input.userId },
+  });
+
+  return { success: true };
 }

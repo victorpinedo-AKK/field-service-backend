@@ -452,3 +452,28 @@ export async function deliverHotshotJob(
     next(error);
   }
 }
+export async function deleteHotshotJob(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.deleteHotshotJob({
+      jobId: String(req.params.id),
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
