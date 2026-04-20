@@ -48,19 +48,49 @@ enum Division {
   trucking
 }
 
+enum CompanyType {
+  internal
+  subcontractor
+  partner
+}
+
+enum MessageTargetScope {
+  all_active_field
+  role
+  user
+  work_order
+  company
+}
+
+enum MessageCategory {
+  general
+  operations
+  sop
+  safety
+  maintenance
+  payroll_1099
+}
+
 model User {
-  id                      String                @id @default(uuid())
-  firstName               String
-  lastName                String
-  email                   String                @unique
-  passwordHash            String
-  role                    UserRole
-  isActive                Boolean               @default(true)
-  createdAt               DateTime              @default(now())
-  updatedAt               DateTime              @updatedAt
-  assignments             WorkOrderAssignment[]
-  dispatchMessagesCreated DispatchMessage[]     @relation("DispatchMessageCreatedBy")
-  dispatchMessageReads    DispatchMessageRead[]
+  id           String   @id @default(uuid())
+  firstName    String
+  lastName     String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  isActive     Boolean  @default(true)
+  companyId    String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  company                  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignments              WorkOrderAssignment[]
+  dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
+  dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
+  dispatchMessageReads     DispatchMessageRead[]
+
+  @@index([companyId])
+  @@index([role, isActive])
 }
 
 model Team {
@@ -82,6 +112,20 @@ model Customer {
   updatedAt  DateTime    @updatedAt
   addresses  Address[]
   workOrders WorkOrder[]
+}
+
+model Company {
+  id          String      @id @default(uuid())
+  name        String
+  companyType CompanyType
+  isActive    Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  users            User[]
+  dispatchMessages DispatchMessage[]
+
+  @@index([companyType, isActive])
 }
 
 model Address {
@@ -146,20 +190,21 @@ model WorkOrderEvent {
 }
 
 model WorkOrder {
-  id               String                   @id @default(uuid())
-  workOrderNumber  String                   @unique
+  id               String    @id @default(uuid())
+  workOrderNumber  String    @unique
   customerId       String
   addressId        String
   jobType          JobType
-  division         Division                 @default(construction)
+  division         Division  @default(construction)
   internalStatus   JobStatus
-  priority         String                   @default("normal")
+  priority         String    @default("normal")
   scheduledStartAt DateTime?
   scheduledEndAt   DateTime?
   dispatcherNotes  String?
   accessNotes      String?
-  createdAt        DateTime                 @default(now())
-  updatedAt        DateTime                 @updatedAt
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
   customer         Customer                 @relation(fields: [customerId], references: [id])
   address          Address                  @relation(fields: [addressId], references: [id])
   assignments      WorkOrderAssignment[]
@@ -168,6 +213,7 @@ model WorkOrder {
   notes            WorkOrderNote[]
   media            WorkOrderMedia[]
   events           WorkOrderEvent[]
+  dispatchMessages DispatchMessage[]
 
   @@index([internalStatus, scheduledStartAt])
 }
@@ -234,9 +280,13 @@ model DispatchMessage {
   priority String  @default("normal")
   isActive Boolean @default(true)
 
-  targetRole        String?
+  targetScope       MessageTargetScope @default(all_active_field)
+  targetRole        UserRole?
   targetUserId      String?
   targetWorkOrderId String?
+  targetCompanyId   String?
+
+  messageCategory MessageCategory @default(general)
 
   createdByUserId String
   expiresAt       DateTime?
@@ -244,12 +294,18 @@ model DispatchMessage {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  createdByUser User                  @relation("DispatchMessageCreatedBy", fields: [createdByUserId], references: [id])
-  readReceipts  DispatchMessageRead[]
+  createdByUser   User                  @relation("DispatchMessageCreatedBy", fields: [createdByUserId], references: [id])
+  targetUser      User?                 @relation("DispatchMessageTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
+  targetCompany   Company?              @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
+  targetWorkOrder WorkOrder?            @relation(fields: [targetWorkOrderId], references: [id], onDelete: SetNull)
+  readReceipts    DispatchMessageRead[]
 
+  @@index([targetScope])
   @@index([targetRole])
   @@index([targetUserId])
   @@index([targetWorkOrderId])
+  @@index([targetCompanyId])
+  @@index([messageCategory])
   @@index([isActive, expiresAt])
 }
 
