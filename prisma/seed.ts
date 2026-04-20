@@ -37,6 +37,18 @@ async function main() {
     },
   });
 
+  await prisma.user.upsert({
+    where: { email: "victor.pinedo@akkinstallations.com" },
+    update: {},
+    create: {
+      firstName: "Victor",
+      lastName: "Pinedo",
+      email: "victor.pinedo@akkinstallations.com",
+      passwordHash,
+      role: UserRole.admin,
+    },
+  });
+
   const team = await prisma.team.upsert({
     where: { id: "crew-a-team-id" },
     update: {},

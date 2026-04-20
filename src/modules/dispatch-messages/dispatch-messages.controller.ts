@@ -16,10 +16,15 @@ export async function createDispatchMessage(
     const result = await dispatchMessagesService.createDispatchMessage({
       userId: req.user.id,
       role: req.user.role,
+      companyId: req.user.companyId ?? null,
       title: typeof req.body?.title === "string" ? req.body.title : "",
       body: typeof req.body?.body === "string" ? req.body.body : "",
       priority:
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
+      targetScope:
+        typeof req.body?.target_scope === "string"
+          ? req.body.target_scope
+          : undefined,
       targetRole:
         typeof req.body?.target_role === "string"
           ? req.body.target_role
@@ -31,6 +36,14 @@ export async function createDispatchMessage(
       targetWorkOrderId:
         typeof req.body?.target_work_order_id === "string"
           ? req.body.target_work_order_id
+          : undefined,
+      targetCompanyId:
+        typeof req.body?.target_company_id === "string"
+          ? req.body.target_company_id
+          : undefined,
+      messageCategory:
+        typeof req.body?.message_category === "string"
+          ? req.body.message_category
           : undefined,
       expiresAt:
         typeof req.body?.expires_at === "string"
@@ -62,12 +75,21 @@ export async function listDispatchMessages(
     const result = await dispatchMessagesService.listDispatchMessages({
       userId: req.user.id,
       role: req.user.role,
+      companyId: req.user.companyId ?? null,
       jobId:
         typeof req.query.job_id === "string" ? req.query.job_id : undefined,
       unreadOnly:
         typeof req.query.unread_only === "string"
           ? req.query.unread_only === "true"
           : false,
+      targetScope:
+        typeof req.query.target_scope === "string"
+          ? req.query.target_scope
+          : undefined,
+      messageCategory:
+        typeof req.query.message_category === "string"
+          ? req.query.message_category
+          : undefined,
     });
 
     return res.status(200).json({
@@ -130,12 +152,44 @@ export async function updateDispatchMessage(
         typeof req.body?.is_active === "boolean"
           ? req.body.is_active
           : undefined,
+      targetScope:
+        typeof req.body?.target_scope === "string"
+          ? req.body.target_scope
+          : undefined,
+      targetRole:
+        req.body?.target_role === null
+          ? null
+          : typeof req.body?.target_role === "string"
+            ? req.body.target_role
+            : undefined,
+      targetUserId:
+        req.body?.target_user_id === null
+          ? null
+          : typeof req.body?.target_user_id === "string"
+            ? req.body.target_user_id
+            : undefined,
+      targetWorkOrderId:
+        req.body?.target_work_order_id === null
+          ? null
+          : typeof req.body?.target_work_order_id === "string"
+            ? req.body.target_work_order_id
+            : undefined,
+      targetCompanyId:
+        req.body?.target_company_id === null
+          ? null
+          : typeof req.body?.target_company_id === "string"
+            ? req.body.target_company_id
+            : undefined,
+      messageCategory:
+        typeof req.body?.message_category === "string"
+          ? req.body.message_category
+          : undefined,
       expiresAt:
         req.body?.expires_at === null
           ? null
           : typeof req.body?.expires_at === "string"
-          ? req.body.expires_at
-          : undefined,
+            ? req.body.expires_at
+            : undefined,
     });
 
     return res.status(200).json({

@@ -94,42 +94,50 @@ model User {
 }
 
 model Team {
-  id          String                @id @default(uuid())
-  name        String
-  teamType    TeamType
-  isActive    Boolean               @default(true)
-  createdAt   DateTime              @default(now())
-  updatedAt   DateTime              @updatedAt
-  assignments WorkOrderAssignment[]
-}
+  id        String    @id @default(uuid())
+  name      String
+  teamType  TeamType
+  division  Division?
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-model Customer {
-  id         String      @id @default(uuid())
-  fullName   String
-  email      String?
-  phone      String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  addresses  Address[]
-  workOrders WorkOrder[]
+  assignments WorkOrderAssignment[]
+
+  @@index([teamType, isActive])
+  @@index([division, isActive])
 }
 
 model Company {
   id          String      @id @default(uuid())
   name        String
   companyType CompanyType
+  division    Division?
   isActive    Boolean     @default(true)
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 
   users            User[]
-  dispatchMessages DispatchMessage[]
+  targetedMessages DispatchMessage[] @relation("DispatchMessageTargetCompany")
 
   @@index([companyType, isActive])
+  @@index([division, isActive])
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  fullName  String
+  email     String?
+  phone     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  addresses  Address[]
+  workOrders WorkOrder[]
 }
 
 model Address {
-  id          String      @id @default(uuid())
+  id          String   @id @default(uuid())
   customerId  String?
   line1       String
   line2       String?
@@ -138,55 +146,11 @@ model Address {
   postalCode  String
   country     String
   accessNotes String?
-  customer    Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  workOrders  WorkOrder[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-}
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-model WorkOrderNote {
-  id              String    @id @default(uuid())
-  workOrderId     String
-  noteType        String
-  body            String
-  createdByUserId String?
-  createdAt       DateTime  @default(now())
-  workOrder       WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId, createdAt])
-}
-
-model WorkOrderMedia {
-  id               String    @id @default(uuid())
-  workOrderId      String
-  mediaType        String
-  storageProvider  String
-  objectKey        String
-  bucketName       String
-  mimeType         String?
-  originalFileName String?
-  fileSizeBytes    Int?
-  createdByUserId  String?
-  createdAt        DateTime  @default(now())
-  deletedAt        DateTime?
-  deletedByUserId  String?
-  workOrder        WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId, createdAt])
-}
-
-model WorkOrderEvent {
-  id              String   @id @default(uuid())
-  workOrderId     String
-  eventType       String
-  label           String
-  metadata        Json?
-  createdByUserId String?
-  createdAt       DateTime @default(now())
-
-  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-
-  @@index([workOrderId, createdAt])
+  customer   Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  workOrders WorkOrder[]
 }
 
 model WorkOrder {
@@ -215,7 +179,55 @@ model WorkOrder {
   events           WorkOrderEvent[]
   dispatchMessages DispatchMessage[]
 
-  @@index([internalStatus, scheduledStartAt])
+  @@index([division, internalStatus, scheduledStartAt])
+  @@index([jobType, division])
+}
+
+model WorkOrderNote {
+  id              String   @id @default(uuid())
+  workOrderId     String
+  noteType        String
+  body            String
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+
+model WorkOrderMedia {
+  id               String    @id @default(uuid())
+  workOrderId      String
+  mediaType        String
+  storageProvider  String
+  objectKey        String
+  bucketName       String
+  mimeType         String?
+  originalFileName String?
+  fileSizeBytes    Int?
+  createdByUserId  String?
+  createdAt        DateTime  @default(now())
+  deletedAt        DateTime?
+  deletedByUserId  String?
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
+}
+
+model WorkOrderEvent {
+  id              String   @id @default(uuid())
+  workOrderId     String
+  eventType       String
+  label           String
+  metadata        Json?
+  createdByUserId String?
+  createdAt       DateTime @default(now())
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, createdAt])
 }
 
 model WorkOrderStatusHistory {
@@ -228,7 +240,8 @@ model WorkOrderStatusHistory {
   reasonCode      String?
   notes           String?
   source          String
-  workOrder       WorkOrder  @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, changedAt])
 }
@@ -254,21 +267,24 @@ model HotShotDetails {
   acceptedAt        DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
-  workOrder         WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
 
 model WorkOrderAssignment {
-  id             String    @id @default(uuid())
+  id             String   @id @default(uuid())
   workOrderId    String
   teamId         String?
   userId         String?
   assignmentType String
-  isActive       Boolean   @default(true)
-  assignedAt     DateTime  @default(now())
-  workOrder      WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
-  team           Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  user           User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  isActive       Boolean  @default(true)
+  assignedAt     DateTime @default(now())
 
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  team      Team?     @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workOrderId, isActive])
   @@index([userId, isActive])
   @@index([teamId, isActive])
 }
@@ -296,7 +312,7 @@ model DispatchMessage {
 
   createdByUser   User                  @relation("DispatchMessageCreatedBy", fields: [createdByUserId], references: [id])
   targetUser      User?                 @relation("DispatchMessageTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
-  targetCompany   Company?              @relation(fields: [targetCompanyId], references: [id], onDelete: SetNull)
+  targetCompany   Company?              @relation("DispatchMessageTargetCompany", fields: [targetCompanyId], references: [id], onDelete: SetNull)
   targetWorkOrder WorkOrder?            @relation(fields: [targetWorkOrderId], references: [id], onDelete: SetNull)
   readReceipts    DispatchMessageRead[]
 
@@ -306,7 +322,7 @@ model DispatchMessage {
   @@index([targetWorkOrderId])
   @@index([targetCompanyId])
   @@index([messageCategory])
-  @@index([isActive, expiresAt])
+  @@index([priority, isActive, expiresAt])
 }
 
 model DispatchMessageRead {

@@ -49,6 +49,12 @@ export async function createUser(
       role: typeof req.body?.role === "string" ? req.body.role : "",
       isActive:
         typeof req.body?.is_active === "boolean" ? req.body.is_active : true,
+      companyId:
+        req.body?.company_id === null
+          ? null
+          : typeof req.body?.company_id === "string"
+            ? req.body.company_id
+            : undefined,
     });
 
     return res.status(201).json({
@@ -85,6 +91,12 @@ export async function updateUser(
       role: typeof req.body?.role === "string" ? req.body.role : undefined,
       isActive:
         typeof req.body?.is_active === "boolean" ? req.body.is_active : undefined,
+      companyId:
+        req.body?.company_id === null
+          ? null
+          : typeof req.body?.company_id === "string"
+            ? req.body.company_id
+            : undefined,
     });
 
     return res.status(200).json({

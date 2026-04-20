@@ -4,10 +4,10 @@ import { AppError } from "../../common/errors/AppError";
 
 const ALLOWED_ROLES = ["admin", "dispatcher", "installer", "delivery_lead"];
 
-function assertAdminOrDispatcher(role: string) {
+function assertAdminOnly(role: string) {
   if (role !== "admin") {
-  throw new AppError("Forbidden", 403, "FORBIDDEN");
-}
+    throw new AppError("Forbidden", 403, "FORBIDDEN");
+  }
 }
 
 interface CreateUserInput {
@@ -18,6 +18,7 @@ interface CreateUserInput {
   password: string;
   role: string;
   isActive?: boolean;
+  companyId?: string | null;
 }
 
 interface ListUsersInput {
@@ -33,10 +34,34 @@ interface UpdateUserInput {
   role?: string;
   isActive?: boolean;
   password?: string;
+  companyId?: string | null;
+}
+
+function normalizeNullableString(value?: string | null) {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  return trimmed ? trimmed : null;
+}
+
+async function ensureCompanyExists(companyId?: string | null) {
+  const normalized = normalizeNullableString(companyId);
+
+  if (!normalized) return null;
+
+  const company = await prisma.company.findUnique({
+    where: { id: normalized },
+    select: { id: true },
+  });
+
+  if (!company) {
+    throw new AppError("Company not found", 404, "COMPANY_NOT_FOUND");
+  }
+
+  return normalized;
 }
 
 export async function listUsers(input: ListUsersInput) {
-  assertAdminOrDispatcher(input.actorRole);
+  assertAdminOnly(input.actorRole);
 
   const users = await prisma.user.findMany({
     orderBy: [{ createdAt: "desc" }],
@@ -47,8 +72,18 @@ export async function listUsers(input: ListUsersInput) {
       email: true,
       role: true,
       isActive: true,
+      companyId: true,
       createdAt: true,
       updatedAt: true,
+      company: {
+        select: {
+          id: true,
+          name: true,
+          companyType: true,
+          division: true,
+          isActive: true,
+        },
+      },
     },
   });
 
@@ -59,13 +94,23 @@ export async function listUsers(input: ListUsersInput) {
     email: user.email,
     role: user.role,
     is_active: user.isActive,
+    company_id: user.companyId,
+    company: user.company
+      ? {
+          id: user.company.id,
+          name: user.company.name,
+          company_type: user.company.companyType,
+          division: user.company.division,
+          is_active: user.company.isActive,
+        }
+      : null,
     created_at: user.createdAt,
     updated_at: user.updatedAt,
   }));
 }
 
 export async function createUser(input: CreateUserInput) {
-  assertAdminOrDispatcher(input.actorRole);
+  assertAdminOnly(input.actorRole);
 
   const email = input.email.trim().toLowerCase();
 
@@ -102,6 +147,7 @@ export async function createUser(input: CreateUserInput) {
     throw new AppError("Email already in use", 409, "EMAIL_ALREADY_EXISTS");
   }
 
+  const companyId = await ensureCompanyExists(input.companyId);
   const passwordHash = await bcrypt.hash(input.password, 10);
 
   const user = await prisma.user.create({
@@ -112,6 +158,7 @@ export async function createUser(input: CreateUserInput) {
       passwordHash,
       role: input.role as any,
       isActive: input.isActive ?? true,
+      companyId,
     },
     select: {
       id: true,
@@ -120,8 +167,18 @@ export async function createUser(input: CreateUserInput) {
       email: true,
       role: true,
       isActive: true,
+      companyId: true,
       createdAt: true,
       updatedAt: true,
+      company: {
+        select: {
+          id: true,
+          name: true,
+          companyType: true,
+          division: true,
+          isActive: true,
+        },
+      },
     },
   });
 
@@ -132,17 +189,27 @@ export async function createUser(input: CreateUserInput) {
     email: user.email,
     role: user.role,
     is_active: user.isActive,
+    company_id: user.companyId,
+    company: user.company
+      ? {
+          id: user.company.id,
+          name: user.company.name,
+          company_type: user.company.companyType,
+          division: user.company.division,
+          is_active: user.company.isActive,
+        }
+      : null,
     created_at: user.createdAt,
     updated_at: user.updatedAt,
   };
 }
 
 export async function updateUser(input: UpdateUserInput) {
-  assertAdminOrDispatcher(input.actorRole);
+  assertAdminOnly(input.actorRole);
 
   const existing = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true, email: true },
+    select: { id: true, email: true, companyId: true },
   });
 
   if (!existing) {
@@ -185,6 +252,11 @@ export async function updateUser(input: UpdateUserInput) {
     }
   }
 
+  const companyId =
+    input.companyId === undefined
+      ? undefined
+      : await ensureCompanyExists(input.companyId);
+
   const user = await prisma.user.update({
     where: { id: input.userId },
     data: {
@@ -194,6 +266,7 @@ export async function updateUser(input: UpdateUserInput) {
       role: input.role as any,
       isActive: input.isActive,
       passwordHash,
+      companyId,
     },
     select: {
       id: true,
@@ -202,8 +275,18 @@ export async function updateUser(input: UpdateUserInput) {
       email: true,
       role: true,
       isActive: true,
+      companyId: true,
       createdAt: true,
       updatedAt: true,
+      company: {
+        select: {
+          id: true,
+          name: true,
+          companyType: true,
+          division: true,
+          isActive: true,
+        },
+      },
     },
   });
 
@@ -214,6 +297,16 @@ export async function updateUser(input: UpdateUserInput) {
     email: user.email,
     role: user.role,
     is_active: user.isActive,
+    company_id: user.companyId,
+    company: user.company
+      ? {
+          id: user.company.id,
+          name: user.company.name,
+          company_type: user.company.companyType,
+          division: user.company.division,
+          is_active: user.company.isActive,
+        }
+      : null,
     created_at: user.createdAt,
     updated_at: user.updatedAt,
   };
