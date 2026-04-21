@@ -28,6 +28,10 @@ export async function createHotshotJob(
         typeof req.body?.customer_phone === "string"
           ? req.body.customer_phone
           : undefined,
+      customerReferenceNumber:
+        typeof req.body?.customer_reference_number === "string"
+          ? req.body.customer_reference_number
+          : undefined,
       pickupName:
         typeof req.body?.pickup_name === "string"
           ? req.body.pickup_name
@@ -452,6 +456,7 @@ export async function deliverHotshotJob(
     next(error);
   }
 }
+
 export async function deleteHotshotJob(
   req: AuthenticatedRequest,
   res: Response,

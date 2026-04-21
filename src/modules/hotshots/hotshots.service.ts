@@ -12,6 +12,7 @@ interface CreateHotshotJobInput {
   customerFullName: string;
   customerEmail?: string;
   customerPhone?: string;
+  customerReferenceNumber?: string;
   pickupName?: string;
   pickupPhone?: string;
   pickupAddress1: string;
@@ -240,6 +241,7 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
         priority: input.priority?.trim() || "normal",
         dispatcherNotes: input.dispatcherNotes?.trim() || null,
         accessNotes: input.accessNotes?.trim() || null,
+        customerReferenceNumber: input.customerReferenceNumber?.trim() || null,
       },
     });
 
@@ -271,12 +273,14 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
       createdByUserId: input.userId,
       metadata: {
         workOrderNumber,
+        customerReferenceNumber: workOrder.customerReferenceNumber,
       },
     });
 
     return {
       id: workOrder.id,
       work_order_number: workOrder.workOrderNumber,
+      customer_reference_number: workOrder.customerReferenceNumber,
       division: workOrder.division,
       internal_status: workOrder.internalStatus,
       priority: workOrder.priority,
@@ -364,6 +368,7 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
   return jobs.map((job) => ({
     id: job.id,
     work_order_number: job.workOrderNumber,
+    customer_reference_number: job.customerReferenceNumber,
     division: job.division,
     internal_status: job.internalStatus,
     customer: {
@@ -469,6 +474,7 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
   return {
     id: job.id,
     work_order_number: job.workOrderNumber,
+    customer_reference_number: job.customerReferenceNumber,
     division: job.division,
     internal_status: job.internalStatus,
     priority: job.priority,
@@ -1242,6 +1248,7 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
     status: JobStatus.completed,
   };
 }
+
 export async function deleteHotshotJob(input: {
   jobId: string;
   role: string;

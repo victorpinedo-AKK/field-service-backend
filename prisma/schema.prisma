@@ -158,6 +158,7 @@ model WorkOrder {
   workOrderNumber  String    @unique
   customerId       String
   addressId        String
+  customerReferenceNumber String?
   jobType          JobType
   division         Division  @default(construction)
   internalStatus   JobStatus
