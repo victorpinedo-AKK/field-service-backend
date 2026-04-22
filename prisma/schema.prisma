@@ -71,6 +71,12 @@ enum MessageCategory {
   payroll_1099
 }
 
+enum WorkOrderItemStatus {
+  pending
+  completed
+  skipped
+}
+
 model User {
   id           String   @id @default(uuid())
   firstName    String
@@ -88,6 +94,8 @@ model User {
   dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
   dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
   dispatchMessageReads     DispatchMessageRead[]
+  locationLogs             UserLocationLog[]
+  teamMessages             TeamMessage[]
 
   @@index([companyId])
   @@index([role, isActive])
@@ -102,7 +110,8 @@ model Team {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  assignments WorkOrderAssignment[]
+  assignments  WorkOrderAssignment[]
+  teamMessages TeamMessage[]
 
   @@index([teamType, isActive])
   @@index([division, isActive])
@@ -154,22 +163,25 @@ model Address {
 }
 
 model WorkOrder {
-  id               String    @id @default(uuid())
-  workOrderNumber  String    @unique
-  customerId       String
-  addressId        String
+  id                      String    @id @default(uuid())
+  workOrderNumber         String    @unique
   customerReferenceNumber String?
-  jobType          JobType
-  division         Division  @default(construction)
-  internalStatus   JobStatus
-  priority         String    @default("normal")
-  scheduledStartAt DateTime?
-  scheduledEndAt   DateTime?
-  dispatcherNotes  String?
-  accessNotes      String?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  items            WorkOrderItem[]
+  searchText              String?
+  externalSource          String?
+  externalId              String?
+  customerId              String
+  addressId               String
+  jobType                 JobType
+  division                Division  @default(construction)
+  internalStatus          JobStatus
+  priority                String    @default("normal")
+  scheduledStartAt        DateTime?
+  scheduledEndAt          DateTime?
+  dispatcherNotes         String?
+  accessNotes             String?
+  isLocked                Boolean   @default(false)
+  createdAt               DateTime  @default(now())
+  updatedAt               DateTime  @updatedAt
 
   customer         Customer                 @relation(fields: [customerId], references: [id])
   address          Address                  @relation(fields: [addressId], references: [id])
@@ -179,27 +191,32 @@ model WorkOrder {
   notes            WorkOrderNote[]
   media            WorkOrderMedia[]
   events           WorkOrderEvent[]
+  items            WorkOrderItem[]
   dispatchMessages DispatchMessage[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
+  @@index([customerReferenceNumber])
+  @@index([externalSource, externalId])
+  @@index([isLocked])
 }
 
 model WorkOrderItem {
-  id                String    @id @default(cuid())
+  id                String              @id @default(cuid())
   workOrderId       String
   title             String
   description       String?
   quantity          Int?
-  sortOrder         Int       @default(0)
-  status            String    @default("pending")
+  sortOrder         Int                 @default(0)
+  status            WorkOrderItemStatus @default(pending)
+  isRequired        Boolean             @default(true)
   completedAt       DateTime?
   completedByUserId String?
   createdByUserId   String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
 
-  workOrder         WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder         WorkOrder           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, sortOrder])
   @@index([workOrderId, status])
@@ -324,7 +341,8 @@ model DispatchMessage {
   targetWorkOrderId String?
   targetCompanyId   String?
 
-  messageCategory MessageCategory @default(general)
+  messageCategory         MessageCategory @default(general)
+  requiresAcknowledgement Boolean         @default(false)
 
   createdByUserId String
   expiresAt       DateTime?
@@ -358,4 +376,30 @@ model DispatchMessageRead {
 
   @@unique([dispatchMessageId, userId])
   @@index([userId])
+}
+
+model UserLocationLog {
+  id        String   @id @default(uuid())
+  userId    String
+  latitude  Float
+  longitude Float
+  accuracy  Float?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model TeamMessage {
+  id        String   @id @default(uuid())
+  teamId    String?
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([teamId, createdAt])
 }

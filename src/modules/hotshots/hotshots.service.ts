@@ -335,7 +335,12 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
   return result;
 }
 
-export async function listHotshotJobs(input: ListHotshotJobsInput) {
+export async function listHotshotJobs(input: {
+  userId: string;
+  role: string;
+  status: string;
+  search?: string;
+}) {
   assertHotshotRole(input.role);
 
   const statusMap: Record<string, JobStatus> = {
@@ -348,10 +353,13 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
   const internalStatus = statusMap[input.status] ?? JobStatus.ready_to_schedule;
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
 
+  const search = input.search?.trim();
+
   const jobs = await prisma.workOrder.findMany({
     where: {
       division: "hotshots",
       internalStatus,
+
       ...(isFieldRole && input.status !== "available"
         ? {
             assignments: {
@@ -362,8 +370,45 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
             },
           }
         : {}),
+
+      ...(search
+        ? {
+            OR: [
+              {
+                workOrderNumber: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+              {
+                customerReferenceNumber: {
+                  contains: search,
+                  mode: "insensitive",
+                },
+              },
+              {
+                customer: {
+                  fullName: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+              {
+                customer: {
+                  phone: {
+                    contains: search,
+                    mode: "insensitive",
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
     },
+
     orderBy: [{ createdAt: "desc" }],
+
     include: {
       customer: true,
       hotShotDetails: true,
