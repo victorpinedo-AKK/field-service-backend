@@ -37,6 +37,7 @@ interface ListHotshotJobsInput {
   userId: string;
   role: string;
   status: string;
+  search?: string;
 }
 
 interface HotshotActionInput {
@@ -335,12 +336,7 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
   return result;
 }
 
-export async function listHotshotJobs(input: {
-  userId: string;
-  role: string;
-  status: string;
-  search?: string;
-}) {
+export async function listHotshotJobs(input: ListHotshotJobsInput) {
   assertHotshotRole(input.role);
 
   const statusMap: Record<string, JobStatus> = {
@@ -352,14 +348,12 @@ export async function listHotshotJobs(input: {
 
   const internalStatus = statusMap[input.status] ?? JobStatus.ready_to_schedule;
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
-
   const search = input.search?.trim();
 
   const jobs = await prisma.workOrder.findMany({
     where: {
       division: "hotshots",
       internalStatus,
-
       ...(isFieldRole && input.status !== "available"
         ? {
             assignments: {
@@ -370,7 +364,6 @@ export async function listHotshotJobs(input: {
             },
           }
         : {}),
-
       ...(search
         ? {
             OR: [
@@ -406,9 +399,7 @@ export async function listHotshotJobs(input: {
           }
         : {}),
     },
-
     orderBy: [{ createdAt: "desc" }],
-
     include: {
       customer: true,
       hotShotDetails: true,
@@ -744,7 +735,11 @@ export async function completeHotshotChecklistItem(
 
   const isAssignedToUser = job.assignments.length > 0;
 
-  if (isFieldRole && !isAssignedToUser && job.internalStatus !== JobStatus.ready_to_schedule) {
+  if (
+    isFieldRole &&
+    !isAssignedToUser &&
+    job.internalStatus !== JobStatus.ready_to_schedule
+  ) {
     throw new AppError("Forbidden", 403, "FORBIDDEN");
   }
 

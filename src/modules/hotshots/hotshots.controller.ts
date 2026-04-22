@@ -104,8 +104,6 @@ export async function createHotshotJob(
         typeof req.body?.access_notes === "string"
           ? req.body.access_notes
           : undefined,
-          search:
-  typeof req.query.search === "string" ? req.query.search : undefined,
     });
 
     return res.status(201).json({
@@ -136,6 +134,8 @@ export async function listHotshotJobs(
       userId: req.user.id,
       role: req.user.role,
       status,
+      search:
+        typeof req.query.search === "string" ? req.query.search : undefined,
     });
 
     return res.status(200).json({
