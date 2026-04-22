@@ -169,6 +169,7 @@ model WorkOrder {
   accessNotes      String?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  items            WorkOrderItem[]
 
   customer         Customer                 @relation(fields: [customerId], references: [id])
   address          Address                  @relation(fields: [addressId], references: [id])
@@ -182,6 +183,26 @@ model WorkOrder {
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
+}
+
+model WorkOrderItem {
+  id                String    @id @default(cuid())
+  workOrderId       String
+  title             String
+  description       String?
+  quantity          Int?
+  sortOrder         Int       @default(0)
+  status            String    @default("pending")
+  completedAt       DateTime?
+  completedByUserId String?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workOrder         WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId, sortOrder])
+  @@index([workOrderId, status])
 }
 
 model WorkOrderNote {

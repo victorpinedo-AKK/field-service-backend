@@ -24,6 +24,8 @@ router.post(
   authMiddleware,
   upload.single("file"),
   hotshotsController.uploadHotshotMedia,
+  router.post("/jobs/:id/items", authMiddleware, hotshotsController.createHotshotChecklistItem);
+router.post("/jobs/:id/items/:itemId/complete", authMiddleware, hotshotsController.completeHotshotChecklistItem);
 );
 router.delete("/jobs/:id", authMiddleware, hotshotsController.deleteHotshotJob);
 

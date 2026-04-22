@@ -174,6 +174,72 @@ export async function getHotshotJobDetail(
   }
 }
 
+export async function createHotshotChecklistItem(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.createHotshotChecklistItem({
+      jobId: String(req.params.id),
+      userId: req.user.id,
+      role: req.user.role,
+      title: typeof req.body?.title === "string" ? req.body.title : "",
+      description:
+        typeof req.body?.description === "string"
+          ? req.body.description
+          : undefined,
+      quantity:
+        typeof req.body?.quantity === "number" ? req.body.quantity : undefined,
+      sortOrder:
+        typeof req.body?.sort_order === "number"
+          ? req.body.sort_order
+          : undefined,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function completeHotshotChecklistItem(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.completeHotshotChecklistItem({
+      jobId: String(req.params.id),
+      itemId: String(req.params.itemId),
+      userId: req.user.id,
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createHotshotNote(
   req: AuthenticatedRequest,
   res: Response,

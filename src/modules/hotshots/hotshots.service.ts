@@ -57,6 +57,23 @@ interface GetHotshotJobDetailInput {
   role: string;
 }
 
+interface CreateHotshotChecklistItemInput {
+  jobId: string;
+  userId: string;
+  role: string;
+  title: string;
+  description?: string;
+  quantity?: number;
+  sortOrder?: number;
+}
+
+interface CompleteHotshotChecklistItemInput {
+  jobId: string;
+  itemId: string;
+  userId: string;
+  role: string;
+}
+
 interface CreateHotshotNoteInput {
   jobId: string;
   userId: string;
@@ -233,6 +250,7 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
     const workOrder = await tx.workOrder.create({
       data: {
         workOrderNumber,
+        customerReferenceNumber: input.customerReferenceNumber?.trim() || null,
         customerId: customer.id,
         addressId: address.id,
         jobType: "delivery",
@@ -241,7 +259,6 @@ export async function createHotshotJob(input: CreateHotshotJobInput) {
         priority: input.priority?.trim() || "normal",
         dispatcherNotes: input.dispatcherNotes?.trim() || null,
         accessNotes: input.accessNotes?.trim() || null,
-        customerReferenceNumber: input.customerReferenceNumber?.trim() || null,
       },
     });
 
@@ -438,6 +455,9 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
     include: {
       customer: true,
       hotShotDetails: true,
+      items: {
+        orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      },
       notes: {
         orderBy: { createdAt: "desc" },
       },
@@ -521,6 +541,17 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
           role: job.assignments[0].user.role,
         }
       : null,
+    items: job.items.map((item) => ({
+      id: item.id,
+      title: item.title,
+      description: item.description,
+      quantity: item.quantity,
+      sort_order: item.sortOrder,
+      status: item.status,
+      completed_at: item.completedAt,
+      completed_by_user_id: item.completedByUserId,
+      created_at: item.createdAt,
+    })),
     timeline: job.events.map((event) => ({
       id: event.id,
       event_type: event.eventType,
@@ -552,6 +583,176 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
   };
 }
 
+export async function createHotshotChecklistItem(
+  input: CreateHotshotChecklistItemInput,
+) {
+  assertHotshotRole(input.role);
+
+  if (!["admin", "dispatcher"].includes(input.role)) {
+    throw new AppError(
+      "Only admin or dispatcher can add checklist items",
+      403,
+      "FORBIDDEN",
+    );
+  }
+
+  const title = input.title.trim();
+
+  if (!title) {
+    throw new AppError("Checklist item title is required", 400, "INVALID_REQUEST");
+  }
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    select: {
+      id: true,
+      workOrderNumber: true,
+      internalStatus: true,
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  if (job.internalStatus === JobStatus.completed) {
+    throw new AppError(
+      "Completed jobs are read-only",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
+  }
+
+  const item = await prisma.workOrderItem.create({
+    data: {
+      workOrderId: job.id,
+      title,
+      description: input.description?.trim() || null,
+      quantity:
+        typeof input.quantity === "number" && input.quantity > 0
+          ? input.quantity
+          : null,
+      sortOrder: typeof input.sortOrder === "number" ? input.sortOrder : 0,
+      createdByUserId: input.userId,
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "checklist_item_added",
+    label: "Checklist Item Added",
+    createdByUserId: input.userId,
+    metadata: {
+      itemId: item.id,
+      title: item.title,
+    },
+  });
+
+  return {
+    id: item.id,
+    work_order_id: item.workOrderId,
+    work_order_number: job.workOrderNumber,
+    title: item.title,
+    description: item.description,
+    quantity: item.quantity,
+    sort_order: item.sortOrder,
+    status: item.status,
+    completed_at: item.completedAt,
+    completed_by_user_id: item.completedByUserId,
+    created_at: item.createdAt,
+  };
+}
+
+export async function completeHotshotChecklistItem(
+  input: CompleteHotshotChecklistItemInput,
+) {
+  assertHotshotRole(input.role);
+
+  const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    select: {
+      id: true,
+      workOrderNumber: true,
+      internalStatus: true,
+      assignments: {
+        where: {
+          userId: input.userId,
+          isActive: true,
+        },
+        select: { id: true },
+      },
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  const isAssignedToUser = job.assignments.length > 0;
+
+  if (isFieldRole && !isAssignedToUser && job.internalStatus !== JobStatus.ready_to_schedule) {
+    throw new AppError("Forbidden", 403, "FORBIDDEN");
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Completed jobs are read-only for non-admin users",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
+  }
+
+  const item = await prisma.workOrderItem.findFirst({
+    where: {
+      id: input.itemId,
+      workOrderId: job.id,
+    },
+  });
+
+  if (!item) {
+    throw new AppError("Checklist item not found", 404, "ITEM_NOT_FOUND");
+  }
+
+  const updated = await prisma.workOrderItem.update({
+    where: { id: item.id },
+    data: {
+      status: "completed",
+      completedAt: new Date(),
+      completedByUserId: input.userId,
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "checklist_item_completed",
+    label: "Checklist Item Completed",
+    createdByUserId: input.userId,
+    metadata: {
+      itemId: updated.id,
+      title: updated.title,
+    },
+  });
+
+  return {
+    id: updated.id,
+    work_order_id: updated.workOrderId,
+    work_order_number: job.workOrderNumber,
+    title: updated.title,
+    status: updated.status,
+    completed_at: updated.completedAt,
+    completed_by_user_id: updated.completedByUserId,
+  };
+}
+
 export async function createHotshotNote(input: CreateHotshotNoteInput) {
   assertHotshotRole(input.role);
 
@@ -562,6 +763,7 @@ export async function createHotshotNote(input: CreateHotshotNoteInput) {
   }
 
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
@@ -586,11 +788,20 @@ export async function createHotshotNote(input: CreateHotshotNoteInput) {
     select: {
       id: true,
       workOrderNumber: true,
+      internalStatus: true,
     },
   });
 
   if (!job) {
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Completed jobs are read-only for non-admin users",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
   }
 
   const note = await prisma.workOrderNote.create({
@@ -627,6 +838,7 @@ export async function uploadHotshotMedia(input: UploadHotshotMediaInput) {
   assertHotshotRole(input.role);
 
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
@@ -651,11 +863,20 @@ export async function uploadHotshotMedia(input: UploadHotshotMediaInput) {
     select: {
       id: true,
       workOrderNumber: true,
+      internalStatus: true,
     },
   });
 
   if (!job) {
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Completed jobs are read-only for non-admin users",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
   }
 
   const safeFileName = input.originalFileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -719,6 +940,7 @@ export async function createHotshotMediaUploadUrl(
   assertHotshotRole(input.role);
 
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
@@ -743,11 +965,20 @@ export async function createHotshotMediaUploadUrl(
     select: {
       id: true,
       workOrderNumber: true,
+      internalStatus: true,
     },
   });
 
   if (!job) {
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Completed jobs are read-only for non-admin users",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
   }
 
   const safeFileName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -773,6 +1004,7 @@ export async function finalizeHotshotMedia(input: FinalizeHotshotMediaInput) {
   assertHotshotRole(input.role);
 
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
+  const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 
   const job = await prisma.workOrder.findFirst({
     where: {
@@ -797,11 +1029,20 @@ export async function finalizeHotshotMedia(input: FinalizeHotshotMediaInput) {
     select: {
       id: true,
       workOrderNumber: true,
+      internalStatus: true,
     },
   });
 
   if (!job) {
     throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  if (job.internalStatus === JobStatus.completed && !isPrivilegedRole) {
+    throw new AppError(
+      "Completed jobs are read-only for non-admin users",
+      409,
+      "INVALID_STATUS_TRANSITION",
+    );
   }
 
   const media = await prisma.workOrderMedia.create({
