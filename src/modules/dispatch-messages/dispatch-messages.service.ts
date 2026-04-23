@@ -48,6 +48,12 @@ interface MarkDispatchMessageReadInput {
   role: string;
 }
 
+interface AcknowledgeDispatchMessageInput {
+  id: string;
+  userId: string;
+  role: string;
+}
+
 interface UpdateDispatchMessageInput {
   id: string;
   userId: string;
@@ -406,6 +412,45 @@ export async function markDispatchMessageRead(
   return {
     id: message.id,
     status: "read",
+  };
+}
+
+export async function acknowledgeDispatchMessage(
+  input: AcknowledgeDispatchMessageInput,
+) {
+  assertDispatchMessageReadRole(input.role);
+
+  const message = await prisma.dispatchMessage.findUnique({
+    where: { id: input.id },
+  });
+
+  if (!message) {
+    throw new AppError("Dispatch message not found", 404, "MESSAGE_NOT_FOUND");
+  }
+
+  const receipt = await prisma.dispatchMessageRead.upsert({
+    where: {
+      dispatchMessageId_userId: {
+        dispatchMessageId: input.id,
+        userId: input.userId,
+      },
+    },
+    update: {
+      readAt: new Date(),
+      acknowledgedAt: new Date(),
+    },
+    create: {
+      dispatchMessageId: input.id,
+      userId: input.userId,
+      acknowledgedAt: new Date(),
+    },
+  });
+
+  return {
+    id: message.id,
+    status: "acknowledged",
+    read_at: receipt.readAt,
+    acknowledged_at: receipt.acknowledgedAt,
   };
 }
 

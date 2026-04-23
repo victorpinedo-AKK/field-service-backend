@@ -216,7 +216,7 @@ model WorkOrderItem {
   createdAt         DateTime            @default(now())
   updatedAt         DateTime            @updatedAt
 
-  workOrder         WorkOrder           @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId, sortOrder])
   @@index([workOrderId, status])
@@ -366,10 +366,11 @@ model DispatchMessage {
 }
 
 model DispatchMessageRead {
-  id                String   @id @default(uuid())
+  id                String    @id @default(uuid())
   dispatchMessageId String
   userId            String
-  readAt            DateTime @default(now())
+  readAt            DateTime  @default(now())
+  acknowledgedAt    DateTime?
 
   dispatchMessage DispatchMessage @relation(fields: [dispatchMessageId], references: [id], onDelete: Cascade)
   user            User            @relation(fields: [userId], references: [id])

@@ -16,7 +16,6 @@ export async function createDispatchMessage(
     const result = await dispatchMessagesService.createDispatchMessage({
       userId: req.user.id,
       role: req.user.role,
-      companyId: req.user.companyId ?? null,
       title: typeof req.body?.title === "string" ? req.body.title : "",
       body: typeof req.body?.body === "string" ? req.body.body : "",
       priority:
@@ -75,7 +74,6 @@ export async function listDispatchMessages(
     const result = await dispatchMessagesService.listDispatchMessages({
       userId: req.user.id,
       role: req.user.role,
-      companyId: req.user.companyId ?? null,
       jobId:
         typeof req.query.job_id === "string" ? req.query.job_id : undefined,
       unreadOnly:
@@ -130,6 +128,33 @@ export async function markDispatchMessageRead(
   }
 }
 
+export async function acknowledgeDispatchMessage(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await dispatchMessagesService.acknowledgeDispatchMessage({
+      id: String(req.params.id),
+      userId: req.user.id,
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function updateDispatchMessage(
   req: AuthenticatedRequest,
   res: Response,
@@ -160,26 +185,26 @@ export async function updateDispatchMessage(
         req.body?.target_role === null
           ? null
           : typeof req.body?.target_role === "string"
-            ? req.body.target_role
-            : undefined,
+          ? req.body.target_role
+          : undefined,
       targetUserId:
         req.body?.target_user_id === null
           ? null
           : typeof req.body?.target_user_id === "string"
-            ? req.body.target_user_id
-            : undefined,
+          ? req.body.target_user_id
+          : undefined,
       targetWorkOrderId:
         req.body?.target_work_order_id === null
           ? null
           : typeof req.body?.target_work_order_id === "string"
-            ? req.body.target_work_order_id
-            : undefined,
+          ? req.body.target_work_order_id
+          : undefined,
       targetCompanyId:
         req.body?.target_company_id === null
           ? null
           : typeof req.body?.target_company_id === "string"
-            ? req.body.target_company_id
-            : undefined,
+          ? req.body.target_company_id
+          : undefined,
       messageCategory:
         typeof req.body?.message_category === "string"
           ? req.body.message_category
@@ -188,8 +213,8 @@ export async function updateDispatchMessage(
         req.body?.expires_at === null
           ? null
           : typeof req.body?.expires_at === "string"
-            ? req.body.expires_at
-            : undefined,
+          ? req.body.expires_at
+          : undefined,
     });
 
     return res.status(200).json({

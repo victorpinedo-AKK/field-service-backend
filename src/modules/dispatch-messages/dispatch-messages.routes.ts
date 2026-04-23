@@ -8,5 +8,6 @@ router.post("/", authMiddleware, dispatchMessagesController.createDispatchMessag
 router.get("/", authMiddleware, dispatchMessagesController.listDispatchMessages);
 router.post("/:id/read", authMiddleware, dispatchMessagesController.markDispatchMessageRead);
 router.patch("/:id", authMiddleware, dispatchMessagesController.updateDispatchMessage);
+router.post("/:id/acknowledge", authMiddleware, dispatchMessagesController.acknowledgeDispatchMessage,);
 
 export default router;
