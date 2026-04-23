@@ -4,6 +4,7 @@ import jobsRoutes from "../modules/jobs/jobs.routes";
 import hotshotsRoutes from "../modules/hotshots/hotshots.routes";
 import usersRoutes from "../modules/users/users.routes";
 import dispatchMessagesRoutes from "../modules/dispatch-messages/dispatch-messages.routes";
+import teamMessagesRoutes from "../modules/team-messages/team-messages.routes"; // 👈 ADD THIS
 
 const router = Router();
 
@@ -21,5 +22,6 @@ router.use("/jobs", jobsRoutes);
 router.use("/hotshots", hotshotsRoutes);
 router.use("/users", usersRoutes);
 router.use("/dispatch-messages", dispatchMessagesRoutes);
+router.use("/team-messages", teamMessagesRoutes); // 👈 NOW THIS WORKS
 
 export default router;
