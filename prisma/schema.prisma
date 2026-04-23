@@ -77,6 +77,23 @@ enum WorkOrderItemStatus {
   skipped
 }
 
+model LocationPing {
+  id          String   @id @default(uuid())
+  userId      String
+  workOrderId String
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  createdAt   DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+  workOrder Job  @relation(fields: [workOrderId], references: [id])
+
+  @@index([userId])
+  @@index([workOrderId])
+  @@index([createdAt])
+}
+
 model User {
   id           String   @id @default(uuid())
   firstName    String

@@ -5,6 +5,7 @@ import hotshotsRoutes from "../modules/hotshots/hotshots.routes";
 import usersRoutes from "../modules/users/users.routes";
 import dispatchMessagesRoutes from "../modules/dispatch-messages/dispatch-messages.routes";
 import teamMessagesRoutes from "../modules/team-messages/team-messages.routes";
+import locationRoutes from "../modules/location/location.routes";
 
 const router = Router();
 
@@ -23,5 +24,6 @@ router.use("/hotshots", hotshotsRoutes);
 router.use("/users", usersRoutes);
 router.use("/dispatch-messages", dispatchMessagesRoutes);
 router.use("/team-messages", teamMessagesRoutes);
+router.use("/location", locationRoutes);
 
 export default router;
