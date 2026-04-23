@@ -48,6 +48,12 @@ router.post(
   hotshotsController.uploadHotshotMedia,
 );
 
+router.delete(
+  "/jobs/:id/notes/:noteId",
+  authMiddleware,
+  hotshotsController.deleteHotshotNote,
+);
+
 router.post("/jobs/:id/accept", authMiddleware, hotshotsController.acceptHotshotJob);
 router.post("/jobs/:id/release", authMiddleware, hotshotsController.releaseHotshotJob);
 router.post("/jobs/:id/pickup", authMiddleware, hotshotsController.pickupHotshotJob);
@@ -57,6 +63,11 @@ router.delete(
   "/jobs/:jobId/media/:mediaId",
   authMiddleware,
   hotshotsController.softDeleteHotshotMedia,
+);
+router.delete(
+  "/jobs/:id/notes/:noteId",
+  authMiddleware,
+  hotshotsController.deleteHotshotNote,
 );
 
 router.delete("/jobs/:id", authMiddleware, hotshotsController.deleteHotshotJob);

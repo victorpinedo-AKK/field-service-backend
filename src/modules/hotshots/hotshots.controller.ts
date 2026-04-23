@@ -550,3 +550,23 @@ export async function deleteHotshotJob(
     next(error);
   }
 }
+
+export async function deleteHotshotNote(req: any, res: any, next: any) {
+  try {
+    const result = await hotshotsService.deleteHotshotNote({
+      jobId: String(req.params.id),
+      noteId: String(req.params.noteId),
+      userId: req.user.id,
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

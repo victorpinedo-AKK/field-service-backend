@@ -113,6 +113,20 @@ interface FinalizeHotshotMediaInput {
   mediaType?: string;
 }
 
+interface DeleteHotshotNoteInput {
+  jobId: string;
+  noteId: string;
+  userId: string;
+  role: string;
+}
+
+interface DeleteHotshotNoteInput {
+  jobId: string;
+  noteId: string;
+  userId: string;
+  role: string;
+}
+
 interface SoftDeleteHotshotMediaInput {
   jobId: string;
   mediaId: string;
@@ -874,6 +888,62 @@ export async function createHotshotNote(input: CreateHotshotNoteInput) {
   };
 }
 
+export async function deleteHotshotNote(input: DeleteHotshotNoteInput) {
+  assertHotshotRole(input.role);
+
+  if (input.role !== "admin") {
+    throw new AppError("Only admins can delete notes", 403, "FORBIDDEN");
+  }
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    select: {
+      id: true,
+      workOrderNumber: true,
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  const note = await prisma.workOrderNote.findFirst({
+    where: {
+      id: input.noteId,
+      workOrderId: job.id,
+    },
+  });
+
+  if (!note) {
+    throw new AppError("Note not found", 404, "NOTE_NOT_FOUND");
+  }
+
+  await prisma.workOrderNote.delete({
+    where: { id: note.id },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "note_deleted",
+    label: "Note Deleted",
+    createdByUserId: input.userId,
+    metadata: {
+      noteId: note.id,
+      noteType: note.noteType,
+    },
+  });
+
+  return {
+    id: note.id,
+    work_order_id: job.id,
+    work_order_number: job.workOrderNumber,
+    status: "deleted",
+  };
+}
+
 export async function uploadHotshotMedia(input: UploadHotshotMediaInput) {
   assertHotshotRole(input.role);
 
@@ -1527,6 +1597,62 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
     id: job.id,
     work_order_number: job.workOrderNumber,
     status: JobStatus.completed,
+  };
+}
+
+export async function deleteHotshotNote(input: DeleteHotshotNoteInput) {
+  assertHotshotRole(input.role);
+
+  if (input.role !== "admin") {
+    throw new AppError("Only admins can delete notes", 403, "FORBIDDEN");
+  }
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    select: {
+      id: true,
+      workOrderNumber: true,
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  const note = await prisma.workOrderNote.findFirst({
+    where: {
+      id: input.noteId,
+      workOrderId: job.id,
+    },
+  });
+
+  if (!note) {
+    throw new AppError("Note not found", 404, "NOTE_NOT_FOUND");
+  }
+
+  await prisma.workOrderNote.delete({
+    where: { id: note.id },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "note_deleted",
+    label: "Note Deleted",
+    createdByUserId: input.userId,
+    metadata: {
+      noteId: note.id,
+      noteType: note.noteType,
+    },
+  });
+
+  return {
+    id: note.id,
+    work_order_id: job.id,
+    work_order_number: job.workOrderNumber,
+    status: "deleted",
   };
 }
 
