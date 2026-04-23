@@ -349,45 +349,37 @@ export async function listDispatchMessages(
   const activeFieldWorker = await isActiveFieldWorkerToday(input.userId, input.role);
 
   const baseMessages = await prisma.dispatchMessage.findMany({
-    where: {
-      isActive: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-      ...(input.targetScope
-        ? {
-            targetScope: input.targetScope,
-          }
-        : {}),
-      ...(input.messageCategory
-        ? {
-            messageCategory: input.messageCategory,
-          }
-        : {}),
-    },
-    include: {
-      readReceipts: {
-        where: {
-          userId: input.userId,
-        },
+  where: {
+    isActive: true,
+    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    ...(input.targetScope
+      ? {
+          targetScope: input.targetScope,
+        }
+      : {}),
+    ...(input.messageCategory
+      ? {
+          messageCategory: input.messageCategory,
+        }
+      : {}),
+  },
+  include: {
+    createdByUser: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
       },
     },
-include: {
-  createdByUser: {
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      role: true,
+    readReceipts: {
+      where: {
+        userId: input.userId,
+      },
     },
   },
-  readReceipts: {
-    where: {
-      userId: input.userId,
-    },
-  },
-},
-
-    orderBy: [{ createdAt: "desc" }],
-  });
+  orderBy: [{ createdAt: "desc" }],
+});
 
   const visibleMessages = baseMessages.filter((message) => {
     if (message.targetScope === "all_active_field") {
@@ -435,37 +427,29 @@ export async function getPendingBlockingMessages(
   const activeFieldWorker = await isActiveFieldWorkerToday(input.userId, input.role);
 
   const baseMessages = await prisma.dispatchMessage.findMany({
-    where: {
-      isActive: true,
-      priority: "urgent",
-      requiresAcknowledgement: true,
-      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
-    },
-    include: {
-      readReceipts: {
-        where: {
-          userId: input.userId,
-        },
+  where: {
+    isActive: true,
+    priority: "urgent",
+    requiresAcknowledgement: true,
+    OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+  },
+  include: {
+    createdByUser: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        role: true,
       },
     },
-    include: {
-  createdByUser: {
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      role: true,
+    readReceipts: {
+      where: {
+        userId: input.userId,
+      },
     },
   },
-  readReceipts: {
-    where: {
-      userId: input.userId,
-    },
-  },
-},
-    orderBy: [{ createdAt: "desc" }],
-  });
-
+  orderBy: [{ createdAt: "desc" }],
+});
   const visibleMessages = baseMessages.filter((message) => {
     if (message.targetScope === "all_active_field") {
       return activeFieldWorker || input.role === "admin" || input.role === "dispatcher";
@@ -650,6 +634,25 @@ export async function updateDispatchMessage(
       expiresAt,
     },
   });
+
+  return {
+    id: updated.id,
+    title: updated.title,
+    body: updated.body,
+    priority: updated.priority,
+    target_scope: updated.targetScope,
+    target_role: updated.targetRole,
+    target_user_id: updated.targetUserId,
+    target_work_order_id: updated.targetWorkOrderId,
+    target_company_id: updated.targetCompanyId,
+    message_category: updated.messageCategory,
+    requires_acknowledgement: updated.requiresAcknowledgement,
+    is_active: updated.isActive,
+    expires_at: updated.expiresAt,
+    created_at: updated.createdAt,
+    updated_at: updated.updatedAt,
+  };
+}
 
   export async function getDispatchMessageDetail(
   input: GetDispatchMessageDetailInput,
