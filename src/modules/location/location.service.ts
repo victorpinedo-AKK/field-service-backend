@@ -27,12 +27,12 @@ export async function createLocationPing(input: CreateLocationPingInput) {
     );
   }
 
-  const job = await prisma.job.findUnique({
+  const workOrder = await prisma.workOrder.findUnique({
     where: { id: input.workOrderId },
     select: { id: true },
   });
 
-  if (!job) {
+  if (!workOrder) {
     throw new AppError("Work order not found", 404, "WORK_ORDER_NOT_FOUND");
   }
 
@@ -63,6 +63,8 @@ export async function getLatestLocations() {
       workOrder: {
         select: {
           id: true,
+          workOrderNumber: true,
+          internalStatus: true,
         },
       },
     },
@@ -83,6 +85,8 @@ export async function getLatestLocations() {
   return deduped.map((item) => ({
     id: item.id,
     work_order_id: item.workOrderId,
+    work_order_number: item.workOrder.workOrderNumber,
+    status: item.workOrder.internalStatus,
     latitude: item.latitude,
     longitude: item.longitude,
     accuracy: item.accuracy,
@@ -91,9 +95,6 @@ export async function getLatestLocations() {
       id: item.user.id,
       first_name: item.user.firstName,
       last_name: item.user.lastName,
-    },
-    work_order: {
-      id: item.workOrder.id,
     },
   }));
 }

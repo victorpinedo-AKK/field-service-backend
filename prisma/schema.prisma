@@ -86,8 +86,8 @@ model LocationPing {
   accuracy    Float?
   createdAt   DateTime @default(now())
 
-  user      User @relation(fields: [userId], references: [id])
-  workOrder Job  @relation(fields: [workOrderId], references: [id])
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([workOrderId])
@@ -112,6 +112,7 @@ model User {
   dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
   dispatchMessageReads     DispatchMessageRead[]
   locationLogs             UserLocationLog[]
+  locationPings            LocationPing[]
   teamMessages             TeamMessage[]
 
   @@index([companyId])
@@ -210,6 +211,7 @@ model WorkOrder {
   events           WorkOrderEvent[]
   items            WorkOrderItem[]
   dispatchMessages DispatchMessage[]
+  locationPings    LocationPing[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
