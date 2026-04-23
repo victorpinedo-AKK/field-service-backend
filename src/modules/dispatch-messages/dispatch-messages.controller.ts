@@ -18,6 +18,10 @@ export async function createDispatchMessage(
       role: req.user.role,
       title: typeof req.body?.title === "string" ? req.body.title : "",
       body: typeof req.body?.body === "string" ? req.body.body : "",
+      
+      
+      requiresAcknowledgement:
+        typeof req.body?.requires_acknowledgement === "boolean" ? req.body.requires_acknowledgement: undefined,
       priority:
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
       targetScope:
@@ -54,6 +58,34 @@ export async function createDispatchMessage(
       success: true,
       data: result,
       meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPendingBlockingMessages(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await dispatchMessagesService.getPendingBlockingMessages({
+      userId: req.user.id,
+      role: req.user.role,
+      jobId:
+        typeof req.query.job_id === "string" ? req.query.job_id : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
       error: null,
     });
   } catch (error) {
@@ -171,6 +203,9 @@ export async function updateDispatchMessage(
       role: req.user.role,
       title: typeof req.body?.title === "string" ? req.body.title : undefined,
       body: typeof req.body?.body === "string" ? req.body.body : undefined,
+      
+      requiresAcknowledgement:
+       typeof req.body?.requires_acknowledgement === "boolean" ? req.body.requires_acknowledgement: undefined,
       priority:
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
       isActive:
