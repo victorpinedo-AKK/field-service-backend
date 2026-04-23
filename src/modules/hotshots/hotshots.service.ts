@@ -509,8 +509,17 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
         orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
       },
       notes: {
-        orderBy: { createdAt: "desc" },
+  orderBy: { createdAt: "desc" },
+  include: {
+    createdBy: {
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
       },
+    },
+  },
+},
       media: {
         where: {
           deletedAt: null,
@@ -611,12 +620,19 @@ export async function getHotshotJobDetail(input: GetHotshotJobDetailInput) {
       created_at: event.createdAt,
     })),
     notes: job.notes.map((note) => ({
-      id: note.id,
-      note_type: note.noteType,
-      body: note.body,
-      created_by_user_id: note.createdByUserId,
-      created_at: note.createdAt,
-    })),
+  id: note.id,
+  note_type: note.noteType,
+  body: note.body,
+  created_by_user_id: note.createdByUserId,
+  created_at: note.createdAt,
+  created_by: note.createdBy
+    ? {
+        id: note.createdBy.id,
+        first_name: note.createdBy.firstName,
+        last_name: note.createdBy.lastName,
+      }
+    : null,
+})),
     media: job.media.map((item) => ({
       id: item.id,
       media_type: item.mediaType,

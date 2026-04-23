@@ -111,6 +111,7 @@ model User {
   dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
   dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
   dispatchMessageReads     DispatchMessageRead[]
+  workOrderNotes           WorkOrderNote[]
   locationLogs             UserLocationLog[]
   locationPings            LocationPing[]
   teamMessages             TeamMessage[]
@@ -250,8 +251,10 @@ model WorkOrderNote {
   createdAt       DateTime @default(now())
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  createdBy User?     @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
 
   @@index([workOrderId, createdAt])
+  @@index([createdByUserId])
 }
 
 model WorkOrderMedia {
