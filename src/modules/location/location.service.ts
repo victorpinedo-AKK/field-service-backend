@@ -42,3 +42,43 @@ export async function createLocationPing(input: CreateLocationPingInput) {
     },
   });
 }
+export async function getLatestLocations() {
+  const latest = await prisma.locationPing.findMany({
+    orderBy: {
+      createdAt: "desc",
+    },
+    distinct: ["workOrderId"],
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+        },
+      },
+      workOrder: {
+        select: {
+          id: true,
+          workOrderNumber: true,
+          internalStatus: true,
+        },
+      },
+    },
+  });
+
+  return latest.map((item) => ({
+    id: item.id,
+    work_order_id: item.workOrderId,
+    work_order_number: item.workOrder?.workOrderNumber,
+    status: item.workOrder?.internalStatus,
+    latitude: item.latitude,
+    longitude: item.longitude,
+    accuracy: item.accuracy,
+    created_at: item.createdAt,
+    user: {
+      id: item.user.id,
+      first_name: item.user.firstName,
+      last_name: item.user.lastName,
+    },
+  }));
+}

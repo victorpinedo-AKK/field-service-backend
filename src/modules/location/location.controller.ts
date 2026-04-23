@@ -35,3 +35,17 @@ export async function createLocationPing(
     next(error);
   }
 }
+export async function getLatestLocations(req: any, res: Response, next: NextFunction) {
+  try {
+    const result = await locationService.getLatestLocations();
+
+    res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
