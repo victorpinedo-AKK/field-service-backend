@@ -20,7 +20,11 @@ export async function createLocationPing(input: CreateLocationPingInput) {
     typeof input.longitude !== "number" ||
     Number.isNaN(input.longitude)
   ) {
-    throw new AppError("Valid latitude and longitude are required", 400, "INVALID_REQUEST");
+    throw new AppError(
+      "Valid latitude and longitude are required",
+      400,
+      "INVALID_REQUEST",
+    );
   }
 
   const job = await prisma.job.findUnique({
@@ -42,12 +46,12 @@ export async function createLocationPing(input: CreateLocationPingInput) {
     },
   });
 }
+
 export async function getLatestLocations() {
-  const latest = await prisma.locationPing.findMany({
+  const latestPings = await prisma.locationPing.findMany({
     orderBy: {
       createdAt: "desc",
     },
-    distinct: ["workOrderId"],
     include: {
       user: {
         select: {
@@ -59,18 +63,26 @@ export async function getLatestLocations() {
       workOrder: {
         select: {
           id: true,
-          workOrderNumber: true,
-          internalStatus: true,
         },
       },
     },
+    take: 100,
   });
 
-  return latest.map((item) => ({
+  const seen = new Set<string>();
+
+  const deduped = latestPings.filter((item) => {
+    if (seen.has(item.workOrderId)) {
+      return false;
+    }
+
+    seen.add(item.workOrderId);
+    return true;
+  });
+
+  return deduped.map((item) => ({
     id: item.id,
     work_order_id: item.workOrderId,
-    work_order_number: item.workOrder?.workOrderNumber,
-    status: item.workOrder?.internalStatus,
     latitude: item.latitude,
     longitude: item.longitude,
     accuracy: item.accuracy,
@@ -79,6 +91,9 @@ export async function getLatestLocations() {
       id: item.user.id,
       first_name: item.user.firstName,
       last_name: item.user.lastName,
+    },
+    work_order: {
+      id: item.workOrder.id,
     },
   }));
 }
