@@ -18,10 +18,10 @@ export async function createDispatchMessage(
       role: req.user.role,
       title: typeof req.body?.title === "string" ? req.body.title : "",
       body: typeof req.body?.body === "string" ? req.body.body : "",
-      
-      
       requiresAcknowledgement:
-        typeof req.body?.requires_acknowledgement === "boolean" ? req.body.requires_acknowledgement: undefined,
+        typeof req.body?.requires_acknowledgement === "boolean"
+          ? req.body.requires_acknowledgement
+          : undefined,
       priority:
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
       targetScope:
@@ -86,6 +86,33 @@ export async function getPendingBlockingMessages(
       success: true,
       data: result,
       meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getDispatchMessageDetail(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await dispatchMessagesService.getDispatchMessageDetail({
+      id: String(req.params.id),
+      userId: req.user.id,
+      role: req.user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
       error: null,
     });
   } catch (error) {
@@ -203,9 +230,10 @@ export async function updateDispatchMessage(
       role: req.user.role,
       title: typeof req.body?.title === "string" ? req.body.title : undefined,
       body: typeof req.body?.body === "string" ? req.body.body : undefined,
-      
       requiresAcknowledgement:
-       typeof req.body?.requires_acknowledgement === "boolean" ? req.body.requires_acknowledgement: undefined,
+        typeof req.body?.requires_acknowledgement === "boolean"
+          ? req.body.requires_acknowledgement
+          : undefined,
       priority:
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
       isActive:

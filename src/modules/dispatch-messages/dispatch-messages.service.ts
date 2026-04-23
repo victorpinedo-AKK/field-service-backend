@@ -29,7 +29,14 @@ interface CreateDispatchMessageInput {
   targetWorkOrderId?: string;
   targetCompanyId?: string;
   messageCategory?: DispatchMessageCategory;
+  requiresAcknowledgement?: boolean;
   expiresAt?: string;
+}
+
+interface GetDispatchMessageDetailInput {
+  id: string;
+  userId: string;
+  role: string;
 }
 
 interface ListDispatchMessagesInput {
@@ -54,6 +61,13 @@ interface AcknowledgeDispatchMessageInput {
   role: string;
 }
 
+interface GetPendingBlockingMessagesInput {
+  userId: string;
+  role: string;
+  companyId?: string | null;
+  jobId?: string;
+}
+
 interface UpdateDispatchMessageInput {
   id: string;
   userId: string;
@@ -68,6 +82,7 @@ interface UpdateDispatchMessageInput {
   targetWorkOrderId?: string | null;
   targetCompanyId?: string | null;
   messageCategory?: DispatchMessageCategory;
+  requiresAcknowledgement?: boolean;
   expiresAt?: string | null;
 }
 
@@ -218,9 +233,10 @@ async function isActiveFieldWorkerToday(userId: string, role: string) {
 }
 
 function mapDispatchMessage(message: any, userId: string) {
-  const isRead = Array.isArray(message.readReceipts)
-    ? message.readReceipts.some((receipt: any) => receipt.userId === userId)
-    : false;
+  const receipt =
+    Array.isArray(message.readReceipts) && message.readReceipts.length > 0
+      ? message.readReceipts[0]
+      : null;
 
   return {
     id: message.id,
@@ -233,14 +249,23 @@ function mapDispatchMessage(message: any, userId: string) {
     target_work_order_id: message.targetWorkOrderId,
     target_company_id: message.targetCompanyId,
     message_category: message.messageCategory,
+    requires_acknowledgement: message.requiresAcknowledgement,
     is_active: message.isActive,
-    is_read: isRead,
+    is_read: !!receipt,
+    acknowledged_at: receipt?.acknowledgedAt ?? null,
     expires_at: message.expiresAt,
     created_at: message.createdAt,
     updated_at: message.updatedAt,
+    created_by: message.createdByUser
+      ? {
+          id: message.createdByUser.id,
+          first_name: message.createdByUser.firstName,
+          last_name: message.createdByUser.lastName,
+          role: message.createdByUser.role,
+        }
+      : null,
   };
 }
-
 export async function createDispatchMessage(
   input: CreateDispatchMessageInput,
 ) {
@@ -287,6 +312,10 @@ export async function createDispatchMessage(
       targetWorkOrderId,
       targetCompanyId,
       messageCategory,
+      requiresAcknowledgement:
+        typeof input.requiresAcknowledgement === "boolean"
+          ? input.requiresAcknowledgement
+          : false,
       createdByUserId: input.userId,
       expiresAt,
     },
@@ -303,6 +332,7 @@ export async function createDispatchMessage(
     target_work_order_id: message.targetWorkOrderId,
     target_company_id: message.targetCompanyId,
     message_category: message.messageCategory,
+    requires_acknowledgement: message.requiresAcknowledgement,
     is_active: message.isActive,
     expires_at: message.expiresAt,
     created_at: message.createdAt,
@@ -340,12 +370,28 @@ export async function listDispatchMessages(
         },
       },
     },
+include: {
+  createdByUser: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+  },
+  readReceipts: {
+    where: {
+      userId: input.userId,
+    },
+  },
+},
+
     orderBy: [{ createdAt: "desc" }],
   });
 
   const visibleMessages = baseMessages.filter((message) => {
     if (message.targetScope === "all_active_field") {
-      return activeFieldWorker;
+      return activeFieldWorker || input.role === "admin" || input.role === "dispatcher";
     }
 
     if (message.targetScope === "role") {
@@ -378,6 +424,80 @@ export async function listDispatchMessages(
   }
 
   return mapped;
+}
+
+export async function getPendingBlockingMessages(
+  input: GetPendingBlockingMessagesInput,
+) {
+  assertDispatchMessageReadRole(input.role);
+
+  const now = new Date();
+  const activeFieldWorker = await isActiveFieldWorkerToday(input.userId, input.role);
+
+  const baseMessages = await prisma.dispatchMessage.findMany({
+    where: {
+      isActive: true,
+      priority: "urgent",
+      requiresAcknowledgement: true,
+      OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+    },
+    include: {
+      readReceipts: {
+        where: {
+          userId: input.userId,
+        },
+      },
+    },
+    include: {
+  createdByUser: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      role: true,
+    },
+  },
+  readReceipts: {
+    where: {
+      userId: input.userId,
+    },
+  },
+},
+    orderBy: [{ createdAt: "desc" }],
+  });
+
+  const visibleMessages = baseMessages.filter((message) => {
+    if (message.targetScope === "all_active_field") {
+      return activeFieldWorker || input.role === "admin" || input.role === "dispatcher";
+    }
+
+    if (message.targetScope === "role") {
+      return message.targetRole === input.role;
+    }
+
+    if (message.targetScope === "user") {
+      return message.targetUserId === input.userId;
+    }
+
+    if (message.targetScope === "work_order") {
+      if (!input.jobId) return false;
+      return message.targetWorkOrderId === input.jobId;
+    }
+
+    if (message.targetScope === "company") {
+      if (!input.companyId) return false;
+      return message.targetCompanyId === input.companyId;
+    }
+
+    return false;
+  });
+
+  const pending = visibleMessages.filter((message) => {
+    const receipt = message.readReceipts[0];
+    return !receipt?.acknowledgedAt;
+  });
+
+  return pending.map((message) => mapDispatchMessage(message, input.userId));
 }
 
 export async function markDispatchMessageRead(
@@ -454,6 +574,7 @@ export async function acknowledgeDispatchMessage(
   };
 }
 
+
 export async function updateDispatchMessage(
   input: UpdateDispatchMessageInput,
 ) {
@@ -522,24 +643,86 @@ export async function updateDispatchMessage(
       targetWorkOrderId,
       targetCompanyId,
       messageCategory,
+      requiresAcknowledgement:
+        typeof input.requiresAcknowledgement === "boolean"
+          ? input.requiresAcknowledgement
+          : undefined,
       expiresAt,
     },
   });
 
+  export async function getDispatchMessageDetail(
+  input: GetDispatchMessageDetailInput,
+) {
+  assertDispatchMessageReadRole(input.role);
+
+  const message = await prisma.dispatchMessage.findUnique({
+    where: { id: input.id },
+    include: {
+      createdByUser: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+      readReceipts: {
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              role: true,
+            },
+          },
+        },
+        orderBy: {
+          readAt: "desc",
+        },
+      },
+    },
+  });
+
+  if (!message) {
+    throw new AppError("Dispatch message not found", 404, "MESSAGE_NOT_FOUND");
+  }
+
   return {
-    id: updated.id,
-    title: updated.title,
-    body: updated.body,
-    priority: updated.priority,
-    target_scope: updated.targetScope,
-    target_role: updated.targetRole,
-    target_user_id: updated.targetUserId,
-    target_work_order_id: updated.targetWorkOrderId,
-    target_company_id: updated.targetCompanyId,
-    message_category: updated.messageCategory,
-    is_active: updated.isActive,
-    expires_at: updated.expiresAt,
-    created_at: updated.createdAt,
-    updated_at: updated.updatedAt,
+    id: message.id,
+    title: message.title,
+    body: message.body,
+    priority: message.priority,
+    target_scope: message.targetScope,
+    target_role: message.targetRole,
+    target_user_id: message.targetUserId,
+    target_work_order_id: message.targetWorkOrderId,
+    target_company_id: message.targetCompanyId,
+    message_category: message.messageCategory,
+    requires_acknowledgement: message.requiresAcknowledgement,
+    is_active: message.isActive,
+    expires_at: message.expiresAt,
+    created_at: message.createdAt,
+    updated_at: message.updatedAt,
+    created_by: message.createdByUser
+      ? {
+          id: message.createdByUser.id,
+          first_name: message.createdByUser.firstName,
+          last_name: message.createdByUser.lastName,
+          role: message.createdByUser.role,
+        }
+      : null,
+    receipts: message.readReceipts.map((receipt) => ({
+      id: receipt.id,
+      read_at: receipt.readAt,
+      acknowledged_at: receipt.acknowledgedAt,
+      user: {
+        id: receipt.user.id,
+        first_name: receipt.user.firstName,
+        last_name: receipt.user.lastName,
+        role: receipt.user.role,
+      },
+    })),
   };
 }
