@@ -3,16 +3,23 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/server.js",
+  "type": "commonjs",
+
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "seed": "tsx prisma/seed.ts"
   },
+
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "commonjs",
+
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1029.0",
     "@aws-sdk/s3-request-presigner": "^3.1029.0",
@@ -27,6 +34,7 @@
     "react-native-signature-canvas": "^5.0.2",
     "zod": "^4.3.6"
   },
+
   "devDependencies": {
     "@types/bcrypt": "^6.0.0",
     "@types/bcryptjs": "^2.4.6",
