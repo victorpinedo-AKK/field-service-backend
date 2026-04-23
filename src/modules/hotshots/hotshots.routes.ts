@@ -64,11 +64,6 @@ router.delete(
   authMiddleware,
   hotshotsController.softDeleteHotshotMedia,
 );
-router.delete(
-  "/jobs/:id/notes/:noteId",
-  authMiddleware,
-  hotshotsController.deleteHotshotNote,
-);
 
 router.delete("/jobs/:id", authMiddleware, hotshotsController.deleteHotshotJob);
 
