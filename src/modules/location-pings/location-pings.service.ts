@@ -20,6 +20,12 @@ interface ListLiveLocationsInput {
   division?: string;
 }
 
+interface GetRouteTrailInput {
+  userId: string;
+  role: string;
+  workOrderId: string;
+}
+
 function assertFieldRole(role: string) {
   const allowedRoles = ["admin", "dispatcher", "installer", "delivery_lead"];
 
@@ -199,6 +205,62 @@ export async function listLiveLocations(input: ListLiveLocationsInput) {
       pickup_state: ping.workOrder.hotShotDetails?.pickupState || null,
       dropoff_city: ping.workOrder.hotShotDetails?.dropoffCity || null,
       dropoff_state: ping.workOrder.hotShotDetails?.dropoffState || null,
+    },
+  }));
+}
+
+
+export async function getRouteTrail(input: GetRouteTrailInput) {
+  assertAdminOrDispatcher(input.role);
+
+  if (!input.workOrderId) {
+    throw new AppError("work_order_id is required", 400, "INVALID_REQUEST");
+  }
+
+  const since = new Date(Date.now() - 1000 * 60 * 60 * 4); // last 4 hours
+
+  const pings = await prisma.locationPing.findMany({
+    where: {
+      workOrderId: input.workOrderId,
+      createdAt: {
+        gte: since,
+      },
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      id: true,
+      latitude: true,
+      longitude: true,
+      accuracy: true,
+      speed: true,
+      heading: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return pings.map((ping) => ({
+    id: ping.id,
+    latitude: ping.latitude,
+    longitude: ping.longitude,
+    accuracy: ping.accuracy,
+    speed: ping.speed,
+    heading: ping.heading,
+    created_at: ping.createdAt,
+    user: {
+      id: ping.user.id,
+      first_name: ping.user.firstName,
+      last_name: ping.user.lastName,
+      role: ping.user.role,
     },
   }));
 }

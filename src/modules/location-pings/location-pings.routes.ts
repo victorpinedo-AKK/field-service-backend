@@ -8,5 +8,9 @@ console.log("LOCATION PINGS ROUTES LOADED");
 
 router.post("/", authMiddleware, locationPingsController.createLocationPing);
 router.get("/live", authMiddleware, locationPingsController.listLiveLocations);
-
+router.get(
+  "/work-orders/:workOrderId/trail",
+  authMiddleware,
+  locationPingsController.getRouteTrail,
+);
 export default router;

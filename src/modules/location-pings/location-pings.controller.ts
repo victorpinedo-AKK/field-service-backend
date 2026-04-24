@@ -86,3 +86,32 @@ export async function listLiveLocations(
     next(error);
   }
 }
+export async function getRouteTrail(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await locationPingsService.getRouteTrail({
+      userId: req.user.id,
+      role: req.user.role,
+      workOrderId:
+        typeof req.params.workOrderId === "string"
+          ? req.params.workOrderId
+          : "",
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
