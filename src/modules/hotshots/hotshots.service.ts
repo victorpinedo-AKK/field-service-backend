@@ -134,6 +134,18 @@ interface SoftDeleteHotshotMediaInput {
   role: string;
 }
 
+interface PreviewHotshotImportInput {
+  userId: string;
+  role: string;
+  rows: Record<string, any>[];
+}
+
+interface CommitHotshotImportInput {
+  userId: string;
+  role: string;
+  rows: Record<string, any>[];
+}
+
 function assertHotshotRole(role: string) {
   const allowedRoles = ["admin", "dispatcher", "installer", "delivery_lead"];
 
@@ -1531,6 +1543,116 @@ export async function pickupHotshotJob(input: HotshotActionInput) {
     id: job.id,
     work_order_number: job.workOrderNumber,
     status: "picked_up",
+  };
+}
+
+const REQUIRED_IMPORT_FIELDS = [
+  "customer_full_name",
+  "pickup_address_1",
+  "pickup_city",
+  "pickup_state",
+  "pickup_postal_code",
+  "dropoff_address_1",
+  "dropoff_city",
+  "dropoff_state",
+  "dropoff_postal_code",
+];
+
+function normalizeImportRow(row: Record<string, any>) {
+  const normalized: Record<string, string> = {};
+
+  for (const key of Object.keys(row)) {
+    normalized[key.trim().toLowerCase()] = String(row[key] ?? "").trim();
+  }
+
+  return normalized;
+}
+
+function validateImportRow(row: Record<string, string>, index: number) {
+  const errors: string[] = [];
+
+  for (const field of REQUIRED_IMPORT_FIELDS) {
+    if (!row[field]) {
+      errors.push(`${field} is required`);
+    }
+  }
+
+  return {
+    row_number: index + 1,
+    valid: errors.length === 0,
+    errors,
+    data: row,
+  };
+}
+
+export async function previewHotshotImport(input: PreviewHotshotImportInput) {
+  assertHotshotCreateRole(input.role);
+
+  const preview = input.rows.map((row, index) => {
+    const normalized = normalizeImportRow(row);
+    return validateImportRow(normalized, index);
+  });
+
+  return {
+    total_rows: preview.length,
+    valid_rows: preview.filter((row) => row.valid).length,
+    invalid_rows: preview.filter((row) => !row.valid).length,
+    rows: preview,
+  };
+}
+
+export async function commitHotshotImport(input: CommitHotshotImportInput) {
+  assertHotshotCreateRole(input.role);
+
+  const preview = await previewHotshotImport(input);
+  const invalidRows = preview.rows.filter((row) => !row.valid);
+
+  if (invalidRows.length > 0) {
+    throw new AppError(
+      "Import contains invalid rows. Preview and fix errors before committing.",
+      400,
+      "IMPORT_VALIDATION_FAILED",
+    );
+  }
+
+  const created = [];
+
+  for (const row of preview.rows) {
+    const data = row.data;
+
+    const result = await createHotshotJob({
+      userId: input.userId,
+      role: input.role,
+      customerFullName: data.customer_full_name,
+      customerEmail: data.customer_email || undefined,
+      customerPhone: data.customer_phone || undefined,
+      customerReferenceNumber: data.customer_reference_number || undefined,
+      pickupName: data.pickup_name || undefined,
+      pickupPhone: data.pickup_phone || undefined,
+      pickupAddress1: data.pickup_address_1,
+      pickupAddress2: data.pickup_address_2 || undefined,
+      pickupCity: data.pickup_city,
+      pickupState: data.pickup_state,
+      pickupPostalCode: data.pickup_postal_code,
+      dropoffName: data.dropoff_name || undefined,
+      dropoffPhone: data.dropoff_phone || undefined,
+      dropoffAddress1: data.dropoff_address_1,
+      dropoffAddress2: data.dropoff_address_2 || undefined,
+      dropoffCity: data.dropoff_city,
+      dropoffState: data.dropoff_state,
+      dropoffPostalCode: data.dropoff_postal_code,
+      urgency: data.urgency || "normal",
+      priority: data.priority || "normal",
+      dispatcherNotes: data.dispatcher_notes || undefined,
+      accessNotes: data.access_notes || undefined,
+    });
+
+    created.push(result);
+  }
+
+  return {
+    created_count: created.length,
+    created,
   };
 }
 

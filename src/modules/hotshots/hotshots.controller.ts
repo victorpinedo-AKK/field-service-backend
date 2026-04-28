@@ -2,6 +2,81 @@ import type { Response, NextFunction } from "express";
 import { AppError } from "../../common/errors/AppError";
 import type { AuthenticatedRequest } from "../../common/middleware/authMiddleware";
 import * as hotshotsService from "./hotshots.service";
+import { parse } from "csv-parse/sync";
+
+function parseCsvBuffer(buffer: Buffer) {
+  return parse(buffer.toString("utf8"), {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+  });
+}
+
+export async function previewHotshotImport(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    if (!req.file) {
+      throw new AppError("CSV file is required", 400, "INVALID_REQUEST");
+    }
+
+    const rows = parseCsvBuffer(req.file.buffer);
+
+    const result = await hotshotsService.previewHotshotImport({
+      userId: req.user.id,
+      role: req.user.role,
+      rows,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function commitHotshotImport(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    if (!req.file) {
+      throw new AppError("CSV file is required", 400, "INVALID_REQUEST");
+    }
+
+    const rows = parseCsvBuffer(req.file.buffer);
+
+    const result = await hotshotsService.commitHotshotImport({
+      userId: req.user.id,
+      role: req.user.role,
+      rows,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
 
 export async function createHotshotJob(
   req: AuthenticatedRequest,

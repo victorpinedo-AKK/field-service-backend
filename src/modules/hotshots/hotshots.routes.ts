@@ -2,11 +2,25 @@ import { Router } from "express";
 import { authMiddleware } from "../../common/middleware/authMiddleware";
 import * as hotshotsController from "./hotshots.controller";
 import { upload } from "../../middleware/upload";
+import { csvUpload } from "../../middleware/csvUpload";
 
 const router = Router();
 
 console.log("HOTSHOTS ROUTES LOADED");
 
+router.post(
+  "/jobs/import/preview",
+  authMiddleware,
+  csvUpload.single("file"),
+  hotshotsController.previewHotshotImport,
+);
+
+router.post(
+  "/jobs/import/commit",
+  authMiddleware,
+  csvUpload.single("file"),
+  hotshotsController.commitHotshotImport,
+);
 router.post("/jobs", authMiddleware, hotshotsController.createHotshotJob);
 router.get("/jobs", authMiddleware, hotshotsController.listHotshotJobs);
 router.get("/jobs/:id", authMiddleware, hotshotsController.getHotshotJobDetail);
