@@ -71,9 +71,10 @@ export async function listDispatchMessages(
       throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const result = await dispatchMessagesService.listDispatchMessages({
-      userId: req.user.id,
-      role: req.user.role,
+   const result = await dispatchMessagesService.listDispatchMessages({
+  userId: req.user.id,
+  role: req.user.role,
+  companyId: req.user.companyId || null,
       jobId:
         typeof req.query.job_id === "string" ? req.query.job_id : undefined,
       unreadOnly:

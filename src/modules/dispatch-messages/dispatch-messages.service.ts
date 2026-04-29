@@ -399,10 +399,11 @@ export async function listDispatchMessages(
       return message.targetWorkOrderId === input.jobId;
     }
 
-    if (message.targetScope === "company") {
-      if (!input.companyId) return false;
-      return message.targetCompanyId === input.companyId;
-    }
+   if (message.targetScope === "company") {
+  if (input.role === "admin") return true;
+  if (!input.companyId) return false;
+  return message.targetCompanyId === input.companyId;
+}
 
     return false;
   });
