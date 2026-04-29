@@ -22,7 +22,7 @@ export async function createDispatchMessage(
         typeof req.body?.priority === "string" ? req.body.priority : undefined,
       targetScope:
         typeof req.body?.target_scope === "string"
-          ? req.body.target_scope
+          ? (req.body.target_scope as any)
           : undefined,
       targetRole:
         typeof req.body?.target_role === "string"
@@ -42,7 +42,7 @@ export async function createDispatchMessage(
           : undefined,
       messageCategory:
         typeof req.body?.message_category === "string"
-          ? req.body.message_category
+          ? (req.body.message_category as any)
           : undefined,
       expiresAt:
         typeof req.body?.expires_at === "string"
@@ -82,11 +82,11 @@ export async function listDispatchMessages(
           : false,
       targetScope:
         typeof req.query.target_scope === "string"
-          ? req.query.target_scope
+          ? (req.query.target_scope as any)
           : undefined,
       messageCategory:
         typeof req.query.message_category === "string"
-          ? req.query.message_category
+          ? (req.query.message_category as any)
           : undefined,
     });
 
@@ -179,7 +179,7 @@ export async function updateDispatchMessage(
           : undefined,
       targetScope:
         typeof req.body?.target_scope === "string"
-          ? req.body.target_scope
+          ? (req.body.target_scope as any)
           : undefined,
       targetRole:
         req.body?.target_role === null
@@ -207,7 +207,7 @@ export async function updateDispatchMessage(
           : undefined,
       messageCategory:
         typeof req.body?.message_category === "string"
-          ? req.body.message_category
+          ? (req.body.message_category as any)
           : undefined,
       expiresAt:
         req.body?.expires_at === null

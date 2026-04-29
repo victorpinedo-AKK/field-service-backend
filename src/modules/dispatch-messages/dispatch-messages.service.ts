@@ -136,7 +136,7 @@ function normalizeMessageCategory(
     value === "maintenance" ||
     value === "payroll_1099"
   ) {
-    return value as DispatchMessageCategory;
+    return value as any;
   }
 
   throw new AppError("Invalid message_category", 400, "INVALID_REQUEST");

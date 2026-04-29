@@ -26,7 +26,7 @@ export async function previewHotshotImport(
       throw new AppError("CSV file is required", 400, "INVALID_REQUEST");
     }
 
-    const rows = parseCsvBuffer(req.file.buffer);
+    const rows = parseCsvBuffer(req.file.buffer) as Record<string, any>[];
 
     const result = await hotshotsService.previewHotshotImport({
       userId: req.user.id,
@@ -59,7 +59,7 @@ export async function commitHotshotImport(
       throw new AppError("CSV file is required", 400, "INVALID_REQUEST");
     }
 
-    const rows = parseCsvBuffer(req.file.buffer);
+    const rows = parseCsvBuffer(req.file.buffer) as Record<string, any>[];
 
     const result = await hotshotsService.commitHotshotImport({
       userId: req.user.id,
