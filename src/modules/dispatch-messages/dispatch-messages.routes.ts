@@ -6,12 +6,8 @@ const router = Router();
 
 router.post("/", authMiddleware, dispatchMessagesController.createDispatchMessage);
 router.get("/", authMiddleware, dispatchMessagesController.listDispatchMessages);
-router.get("/pending-blocking", authMiddleware, dispatchMessagesController.getPendingBlockingMessages);
-router.get("/:id", authMiddleware, dispatchMessagesController.getDispatchMessageDetail,);
 router.post("/:id/read", authMiddleware, dispatchMessagesController.markDispatchMessageRead);
-router.get("/pending-blocking", authMiddleware, dispatchMessagesController.getPendingBlockingMessages);
 router.post("/:id/acknowledge", authMiddleware, dispatchMessagesController.acknowledgeDispatchMessage);
 router.patch("/:id", authMiddleware, dispatchMessagesController.updateDispatchMessage);
-
 
 export default router;

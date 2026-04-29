@@ -5,6 +5,7 @@ import { prisma } from "../../config/db";
 import { AppError } from "../../common/errors/AppError";
 import { env } from "../../config/env";
 import { r2 } from "../../config/r2";
+import * as notificationsService from "../notifications/notifications.service";
 
 interface CreateHotshotJobInput {
   userId: string;
@@ -83,12 +84,27 @@ interface CreateHotshotNoteInput {
   noteType?: string;
 }
 
+interface ScheduleHotshotJobInput {
+  jobId: string;
+  userId: string;
+  role: string;
+  scheduledStartAt: string;
+  scheduledEndAt: string;
+}
+
 interface CreateHotshotMediaUploadUrlInput {
   jobId: string;
   userId: string;
   role: string;
   fileName: string;
   mimeType: string;
+}
+
+interface WeeklyHotshotScheduleInput {
+  userId: string;
+  role: string;
+  start: string;
+  end: string;
 }
 
 interface UploadHotshotMediaInput {
@@ -209,6 +225,150 @@ async function logWorkOrderEvent(
       metadata: params.metadata ?? undefined,
     },
   });
+}
+
+export async function getWeeklyHotshotSchedule(
+  input: WeeklyHotshotScheduleInput,
+) {
+  assertHotshotRole(input.role);
+
+  if (!["admin", "dispatcher"].includes(input.role)) {
+    throw new AppError("Only admin or dispatcher can view scheduler", 403, "FORBIDDEN");
+  }
+
+  const start = new Date(input.start);
+  const end = new Date(input.end);
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    throw new AppError("Valid start and end dates are required", 400, "INVALID_REQUEST");
+  }
+
+  const jobs = await prisma.workOrder.findMany({
+    where: {
+      division: "hotshots",
+      scheduledStartAt: {
+        gte: start,
+        lte: end,
+      },
+    },
+    orderBy: [{ scheduledStartAt: "asc" }, { createdAt: "asc" }],
+    include: {
+      customer: true,
+      hotShotDetails: true,
+      assignments: {
+        where: { isActive: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  return jobs.map((job) => ({
+    id: job.id,
+    work_order_number: job.workOrderNumber,
+    customer_reference_number: job.customerReferenceNumber,
+    internal_status: job.internalStatus,
+    scheduled_start_at: job.scheduledStartAt,
+    scheduled_end_at: job.scheduledEndAt,
+    customer: {
+      id: job.customer.id,
+      full_name: job.customer.fullName,
+      phone: job.customer.phone,
+      email: job.customer.email,
+    },
+    pickup_city: job.hotShotDetails?.pickupCity ?? null,
+    dropoff_city: job.hotShotDetails?.dropoffCity ?? null,
+    urgency: job.hotShotDetails?.urgency ?? "normal",
+    assignee: job.assignments[0]?.user
+      ? {
+          id: job.assignments[0].user.id,
+          first_name: job.assignments[0].user.firstName,
+          last_name: job.assignments[0].user.lastName,
+        }
+      : null,
+  }));
+}
+
+export async function scheduleHotshotJob(input: ScheduleHotshotJobInput) {
+  assertHotshotRole(input.role);
+
+  if (!["admin", "dispatcher"].includes(input.role)) {
+    throw new AppError("Only admin or dispatcher can schedule jobs", 403, "FORBIDDEN");
+  }
+
+  const scheduledStartAt = new Date(input.scheduledStartAt);
+  const scheduledEndAt = new Date(input.scheduledEndAt);
+
+  if (
+    Number.isNaN(scheduledStartAt.getTime()) ||
+    Number.isNaN(scheduledEndAt.getTime())
+  ) {
+    throw new AppError("Valid scheduled start and end are required", 400, "INVALID_REQUEST");
+  }
+
+  if (scheduledEndAt <= scheduledStartAt) {
+    throw new AppError("Scheduled end must be after scheduled start", 400, "INVALID_REQUEST");
+  }
+
+  const job = await prisma.workOrder.findFirst({
+    where: {
+      id: input.jobId,
+      division: "hotshots",
+    },
+    include: {
+      customer: true,
+      hotShotDetails: true,
+    },
+  });
+
+  if (!job) {
+    throw new AppError("Job not found", 404, "JOB_NOT_FOUND");
+  }
+
+  const updated = await prisma.workOrder.update({
+    where: { id: job.id },
+    data: {
+      scheduledStartAt,
+      scheduledEndAt,
+    },
+    include: {
+      customer: true,
+      hotShotDetails: true,
+    },
+  });
+
+  await logWorkOrderEvent(prisma, {
+    workOrderId: job.id,
+    eventType: "job_scheduled",
+    label: "Job Scheduled",
+    createdByUserId: input.userId,
+    metadata: {
+      scheduledStartAt: scheduledStartAt.toISOString(),
+      scheduledEndAt: scheduledEndAt.toISOString(),
+    },
+  });
+
+  return {
+    id: updated.id,
+    work_order_number: updated.workOrderNumber,
+    scheduled_start_at: updated.scheduledStartAt,
+    scheduled_end_at: updated.scheduledEndAt,
+    customer: {
+      id: updated.customer.id,
+      full_name: updated.customer.fullName,
+      phone: updated.customer.phone,
+      email: updated.customer.email,
+    },
+    pickup_city: updated.hotShotDetails?.pickupCity ?? null,
+    dropoff_city: updated.hotShotDetails?.dropoffCity ?? null,
+  };
 }
 
 export async function createHotshotJob(input: CreateHotshotJobInput) {
@@ -446,10 +606,13 @@ export async function listHotshotJobs(input: ListHotshotJobsInput) {
 
   return jobs.map((job) => ({
     id: job.id,
+    
     work_order_number: job.workOrderNumber,
     customer_reference_number: job.customerReferenceNumber,
     division: job.division,
     internal_status: job.internalStatus,
+    scheduled_start_at: job.scheduledStartAt,
+    scheduled_end_at: job.scheduledEndAt,
     customer: {
       id: job.customer.id,
       full_name: job.customer.fullName,
@@ -1333,6 +1496,7 @@ export async function acceptHotshotJob(input: HotshotActionInput) {
       division: "hotshots",
     },
     include: {
+      customer: true,
       hotShotDetails: true,
       assignments: {
         where: { isActive: true },
@@ -1395,6 +1559,8 @@ export async function acceptHotshotJob(input: HotshotActionInput) {
       });
     }
   });
+
+  await notificationsService.notifyCustomerHotshotAccepted(job);
 
   return {
     id: job.id,

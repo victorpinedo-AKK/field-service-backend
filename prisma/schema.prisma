@@ -333,6 +333,7 @@ model HotShotDetails {
   acceptedAt        DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
+  
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }

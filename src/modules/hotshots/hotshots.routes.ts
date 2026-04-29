@@ -23,6 +23,17 @@ router.post(
 );
 router.post("/jobs", authMiddleware, hotshotsController.createHotshotJob);
 router.get("/jobs", authMiddleware, hotshotsController.listHotshotJobs);
+router.get(
+  "/jobs/weekly-schedule",
+  authMiddleware,
+  hotshotsController.getWeeklyHotshotSchedule,
+);
+router.patch(
+  "/jobs/:id/schedule",
+  authMiddleware,
+  hotshotsController.scheduleHotshotJob,
+);
+
 router.get("/jobs/:id", authMiddleware, hotshotsController.getHotshotJobDetail);
 
 router.post(
@@ -54,6 +65,8 @@ router.post(
   authMiddleware,
   hotshotsController.finalizeHotshotMedia,
 );
+
+router.post("/jobs/:id/accept", authMiddleware, hotshotsController.acceptHotshotJob);
 
 router.post(
   "/jobs/:id/media/upload",

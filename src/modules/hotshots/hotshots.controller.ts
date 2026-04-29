@@ -78,6 +78,41 @@ export async function commitHotshotImport(
   }
 }
 
+export async function scheduleHotshotJob(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.scheduleHotshotJob({
+      jobId: String(req.params.id),
+      userId: req.user.id,
+      role: req.user.role,
+      scheduledStartAt:
+        typeof req.body?.scheduled_start_at === "string"
+          ? req.body.scheduled_start_at
+          : "",
+      scheduledEndAt:
+        typeof req.body?.scheduled_end_at === "string"
+          ? req.body.scheduled_end_at
+          : "",
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createHotshotJob(
   req: AuthenticatedRequest,
   res: Response,
@@ -211,6 +246,34 @@ export async function listHotshotJobs(
       status,
       search:
         typeof req.query.search === "string" ? req.query.search : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getWeeklyHotshotSchedule(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await hotshotsService.getWeeklyHotshotSchedule({
+      userId: req.user.id,
+      role: req.user.role,
+      start: typeof req.query.start === "string" ? req.query.start : "",
+      end: typeof req.query.end === "string" ? req.query.end : "",
     });
 
     return res.status(200).json({
