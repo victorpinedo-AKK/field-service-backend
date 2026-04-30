@@ -61,6 +61,35 @@ export async function createDispatchMessage(
   }
 }
 
+export async function getPendingBlockingMessages(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const result = await dispatchMessagesService.getPendingBlockingMessages({
+      userId: req.user.id,
+      role: req.user.role,
+      companyId: (req.user as any).companyId || null,
+      jobId:
+        typeof req.query.job_id === "string" ? req.query.job_id : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listDispatchMessages(
   req: AuthenticatedRequest,
   res: Response,
