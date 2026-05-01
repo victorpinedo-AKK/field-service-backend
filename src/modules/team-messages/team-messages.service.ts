@@ -22,15 +22,8 @@ function assertAllowedRole(role: string) {
   }
 }
 
-function extractMentions(body: string): string[] {
-  const matches = body.match(/@(\w+)/g) || [];
-  return matches.map((m) => m.replace("@", ""));
-
-}
-
-
 async function sendPushNotification(tokens: string[], message: string) {
-  await fetch("https://exp.host/--/api/v2/push/send", {
+  const response = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -45,6 +38,9 @@ async function sendPushNotification(tokens: string[], message: string) {
       })),
     ),
   });
+
+  const result = await response.json();
+  console.log("EXPO PUSH RESPONSE:", result);
 }
 
 export async function listTeamMessages(input: ListTeamMessagesInput) {
@@ -119,17 +115,6 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
     }
   }
 
-  const pushTokens = await prisma.userPushToken.findMany({
-  select: { token: true },
-});
-
-const tokens = pushTokens.map((t) => t.token);
-console.log("PUSH TOKENS FOUND:", tokens);
-
-if (tokens.length) {
-  await sendPushNotification(tokens, input.body);
-}
-
   const message = await prisma.teamMessage.create({
     data: {
       teamId: input.teamId || null,
@@ -155,6 +140,20 @@ if (tokens.length) {
       },
     },
   });
+
+  console.log("TEAM MESSAGE CREATED:", message.id);
+
+  const pushTokens = await prisma.userPushToken.findMany({
+    select: { token: true },
+  });
+
+  const tokens = pushTokens.map((t) => t.token);
+
+  console.log("PUSH TOKENS FOUND:", tokens);
+
+  if (tokens.length) {
+    await sendPushNotification(tokens, trimmedBody);
+  }
 
   return {
     id: message.id,
