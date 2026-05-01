@@ -28,6 +28,7 @@ function extractMentions(body: string): string[] {
 
 }
 
+
 async function sendPushNotification(tokens: string[], message: string) {
   await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
@@ -123,6 +124,7 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
 });
 
 const tokens = pushTokens.map((t) => t.token);
+console.log("PUSH TOKENS FOUND:", tokens);
 
 if (tokens.length) {
   await sendPushNotification(tokens, input.body);
