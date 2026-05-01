@@ -28,6 +28,24 @@ function extractMentions(body: string): string[] {
 
 }
 
+async function sendPushNotification(tokens: string[], message: string) {
+  await fetch("https://exp.host/--/api/v2/push/send", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(
+      tokens.map((token) => ({
+        to: token,
+        sound: "default",
+        title: "AKK Team Message",
+        body: message,
+        data: { screen: "TeamMessages" },
+      })),
+    ),
+  });
+}
+
 export async function listTeamMessages(input: ListTeamMessagesInput) {
   assertAllowedRole(input.role);
 
@@ -99,6 +117,16 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
       throw new AppError("Team not found", 404, "TEAM_NOT_FOUND");
     }
   }
+
+  const pushTokens = await prisma.userPushToken.findMany({
+  select: { token: true },
+});
+
+const tokens = pushTokens.map((t) => t.token);
+
+if (tokens.length) {
+  await sendPushNotification(tokens, input.body);
+}
 
   const message = await prisma.teamMessage.create({
     data: {
