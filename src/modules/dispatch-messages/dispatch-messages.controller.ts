@@ -44,6 +44,10 @@ export async function createDispatchMessage(
         typeof req.body?.message_category === "string"
           ? (req.body.message_category as any)
           : undefined,
+          requiresAcknowledgement:
+  typeof req.body?.requires_acknowledgement === "boolean"
+    ? req.body.requires_acknowledgement
+    : false,
       expiresAt:
         typeof req.body?.expires_at === "string"
           ? req.body.expires_at
@@ -239,6 +243,10 @@ export async function updateDispatchMessage(
         typeof req.body?.message_category === "string"
           ? (req.body.message_category as any)
           : undefined,
+          requiresAcknowledgement:
+  typeof req.body?.requires_acknowledgement === "boolean"
+    ? req.body.requires_acknowledgement
+    : undefined,
       expiresAt:
         req.body?.expires_at === null
           ? null
