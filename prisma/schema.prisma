@@ -120,6 +120,7 @@ model User {
   locationLogs             UserLocationLog[]
   locationPings            LocationPing[]
   teamMessages             TeamMessage[]
+  pushTokens UserPushToken[]
 
   @@index([companyId])
   @@index([role, isActive])
@@ -139,6 +140,19 @@ model Team {
 
   @@index([teamType, isActive])
   @@index([division, isActive])
+}
+
+model UserPushToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  platform  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 model Company {

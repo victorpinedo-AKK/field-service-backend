@@ -22,6 +22,12 @@ function assertAllowedRole(role: string) {
   }
 }
 
+function extractMentions(body: string): string[] {
+  const matches = body.match(/@(\w+)/g) || [];
+  return matches.map((m) => m.replace("@", ""));
+
+}
+
 export async function listTeamMessages(input: ListTeamMessagesInput) {
   assertAllowedRole(input.role);
 

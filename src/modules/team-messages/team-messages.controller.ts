@@ -44,8 +44,6 @@ export async function createTeamMessage(
     const result = await teamMessagesService.createTeamMessage({
       userId: req.user.id,
       role: req.user.role,
-      teamId:
-        typeof req.body?.team_id === "string" ? req.body.team_id : undefined,
       body: typeof req.body?.body === "string" ? req.body.body : "",
     });
 

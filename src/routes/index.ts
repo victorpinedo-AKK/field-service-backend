@@ -6,6 +6,7 @@ import usersRoutes from "../modules/users/users.routes";
 import dispatchMessagesRoutes from "../modules/dispatch-messages/dispatch-messages.routes";
 import teamMessagesRoutes from "../modules/team-messages/team-messages.routes";
 import locationPingsRoutes from "../modules/location-pings/location-pings.routes";
+import pushTokensRoutes from "../modules/push-tokens/push-tokens.routes";
 
 const router = Router();
 
@@ -25,5 +26,6 @@ router.use("/users", usersRoutes);
 router.use("/dispatch-messages", dispatchMessagesRoutes);
 router.use("/team-messages", teamMessagesRoutes);
 router.use("/location-pings", locationPingsRoutes);
+router.use("/push-tokens", pushTokensRoutes);
 
 export default router;

@@ -6,6 +6,7 @@ import { AppError } from "../../common/errors/AppError";
 import { env } from "../../config/env";
 import { r2 } from "../../config/r2";
 import * as notificationsService from "../notifications/notifications.service";
+import * as dispatchMessagesService from "../dispatch-messages/dispatch-messages.service";
 
 interface CreateHotshotJobInput {
   userId: string;
@@ -1860,6 +1861,22 @@ export async function deliverHotshotJob(input: DeliverHotshotJobInput) {
       "INVALID_STATUS_TRANSITION",
     );
   }
+
+const pendingBlockingMessages =
+  await dispatchMessagesService.getPendingBlockingMessages({
+    userId: input.userId,
+    role: input.role,
+    companyId: null,
+    jobId: job.id,
+  });
+
+if (pendingBlockingMessages.length > 0) {
+  throw new AppError(
+    "You must acknowledge urgent dispatch messages before completing this route.",
+    409,
+    "URGENT_MESSAGE_ACK_REQUIRED",
+  );
+}
 
   const photoCount = await prisma.workOrderMedia.count({
     where: {
