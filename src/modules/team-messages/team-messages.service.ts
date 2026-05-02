@@ -95,6 +95,82 @@ export async function listTeamMessages(input: ListTeamMessagesInput) {
   }));
 }
 
+function extractMentions(body: string): string[] {
+  const matches = body.match(/@[\w.-]+/g) || [];
+  return matches.map((m) => m.replace("@", "").toLowerCase());
+}
+
+async function getPushTokensForTeamMessage(body: string, senderUserId: string) {
+  const mentions = extractMentions(body);
+
+  const roleMap: Record<string, string[]> = {
+    everyone: ["admin", "dispatcher", "installer", "delivery_lead"],
+    all: ["admin", "dispatcher", "installer", "delivery_lead"],
+    installers: ["installer"],
+    installer: ["installer"],
+    dispatchers: ["dispatcher"],
+    dispatcher: ["dispatcher"],
+    admins: ["admin"],
+    admin: ["admin"],
+  };
+
+  const mentionedRoles = mentions.flatMap((mention) => roleMap[mention] || []);
+  const specificNames = mentions.filter((mention) => !roleMap[mention]);
+
+  const users = await prisma.user.findMany({
+    where: {
+      id: {
+        not: senderUserId,
+      },
+      OR:
+        mentions.length === 0 || mentions.includes("everyone") || mentions.includes("all")
+          ? undefined
+          : [
+              mentionedRoles.length
+                ? {
+                    role: {
+                      in: mentionedRoles as any[],
+                    },
+                  }
+                : {},
+              specificNames.length
+                ? {
+                    OR: specificNames.flatMap((name) => [
+                      {
+                        firstName: {
+                          equals: name,
+                          mode: "insensitive",
+                        },
+                      },
+                      {
+                        lastName: {
+                          equals: name,
+                          mode: "insensitive",
+                        },
+                      },
+                      {
+                        email: {
+                          contains: name,
+                          mode: "insensitive",
+                        },
+                      },
+                    ]),
+                  }
+                : {},
+            ],
+    },
+    include: {
+      pushTokens: {
+        select: {
+          token: true,
+        },
+      },
+    },
+  });
+
+  return users.flatMap((user) => user.pushTokens.map((item) => item.token));
+}
+
 export async function createTeamMessage(input: CreateTeamMessageInput) {
   assertAllowedRole(input.role);
 
@@ -143,11 +219,7 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
 
   console.log("TEAM MESSAGE CREATED:", message.id);
 
-  const pushTokens = await prisma.userPushToken.findMany({
-    select: { token: true },
-  });
-
-  const tokens = pushTokens.map((t) => t.token);
+  const tokens = await getPushTokensForTeamMessage(trimmedBody, input.userId);
 
   console.log("PUSH TOKENS FOUND:", tokens);
 
