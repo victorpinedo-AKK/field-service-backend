@@ -12,6 +12,7 @@ interface CreateTeamMessageInput {
   role: string;
   teamId?: string;
   body: string;
+  targetWorkOrderId?: string;
 }
 
 function assertAllowedRole(role: string) {
@@ -22,10 +23,12 @@ function assertAllowedRole(role: string) {
   }
 }
 
-async function sendPushNotification(tokens: string[], message: string) {
-const isUrgent =
-    message.toLowerCase().includes("@urgent") ||
-    message.toLowerCase().includes("urgent");
+async function sendPushNotification(
+  tokens: string[],
+  message: string,
+  messageId: string,
+  targetWorkOrderId?: string | null,
+) {
   const response = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: {
@@ -35,15 +38,51 @@ const isUrgent =
       tokens.map((token) => ({
         to: token,
         sound: "default",
-        title: isUrgent ? "🚨 URGENT - AKK Team Message" : "AKK Team Message",
+        title: "AKK Team Message",
         body: message,
-        data: { screen: "TeamMessages" },
+        data: {
+          screen: "TeamMessages",
+          messageId,
+          targetWorkOrderId: targetWorkOrderId || null,
+        },
       })),
     ),
   });
 
   const result = await response.json();
   console.log("EXPO PUSH RESPONSE:", result);
+}
+
+function mapTeamMessage(message: any) {
+  return {
+    id: message.id,
+    body: message.body,
+    created_at: message.createdAt,
+    acknowledged_by_me: (message.acknowledgements?.length ?? 0) > 0,
+
+    target_work_order: message.targetWorkOrder
+      ? {
+          id: message.targetWorkOrder.id,
+          work_order_number: message.targetWorkOrder.workOrderNumber,
+        }
+      : null,
+
+    sender: {
+      id: message.user.id,
+      first_name: message.user.firstName,
+      last_name: message.user.lastName,
+      role: message.user.role,
+    },
+
+    team: message.team
+      ? {
+          id: message.team.id,
+          name: message.team.name,
+          team_type: message.team.teamType,
+          division: message.team.division,
+        }
+      : null,
+  };
 }
 
 export async function listTeamMessages(input: ListTeamMessagesInput) {
@@ -62,6 +101,12 @@ export async function listTeamMessages(input: ListTeamMessagesInput) {
           userId: input.userId,
         },
         select: { id: true },
+      },
+      targetWorkOrder: {
+        select: {
+          id: true,
+          workOrderNumber: true,
+        },
       },
       user: {
         select: {
@@ -83,30 +128,7 @@ export async function listTeamMessages(input: ListTeamMessagesInput) {
     take: 100,
   });
 
-  return messages.map((message) => ({
-    id: message.id,
-    body: message.body,
-    created_at: message.createdAt,
-
-    // ✅ SAFE version
-    acknowledged_by_me:
-      (message.acknowledgements?.length ?? 0) > 0,
-
-    sender: {
-      id: message.user.id,
-      first_name: message.user.firstName,
-      last_name: message.user.lastName,
-      role: message.user.role,
-    },
-    team: message.team
-      ? {
-          id: message.team.id,
-          name: message.team.name,
-          team_type: message.team.teamType,
-          division: message.team.division,
-        }
-      : null,
-  }));
+  return messages.map(mapTeamMessage);
 }
 
 function extractMentions(body: string): string[] {
@@ -137,7 +159,9 @@ async function getPushTokensForTeamMessage(body: string, senderUserId: string) {
         not: senderUserId,
       },
       OR:
-        mentions.length === 0 || mentions.includes("everyone") || mentions.includes("all")
+        mentions.length === 0 ||
+        mentions.includes("everyone") ||
+        mentions.includes("all")
           ? undefined
           : [
               mentionedRoles.length
@@ -185,8 +209,6 @@ async function getPushTokensForTeamMessage(body: string, senderUserId: string) {
   return users.flatMap((user) => user.pushTokens.map((item) => item.token));
 }
 
-
-
 export async function createTeamMessage(input: CreateTeamMessageInput) {
   assertAllowedRole(input.role);
 
@@ -207,13 +229,37 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
     }
   }
 
+  if (input.targetWorkOrderId) {
+    const workOrder = await prisma.workOrder.findUnique({
+      where: { id: input.targetWorkOrderId },
+      select: { id: true },
+    });
+
+    if (!workOrder) {
+      throw new AppError("Route not found", 404, "WORK_ORDER_NOT_FOUND");
+    }
+  }
+
   const message = await prisma.teamMessage.create({
     data: {
       teamId: input.teamId || null,
       userId: input.userId,
       body: trimmedBody,
+      targetWorkOrderId: input.targetWorkOrderId || null,
     },
     include: {
+      acknowledgements: {
+        where: {
+          userId: input.userId,
+        },
+        select: { id: true },
+      },
+      targetWorkOrder: {
+        select: {
+          id: true,
+          workOrderNumber: true,
+        },
+      },
       user: {
         select: {
           id: true,
@@ -240,29 +286,17 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
   console.log("PUSH TOKENS FOUND:", tokens);
 
   if (tokens.length) {
-    await sendPushNotification(tokens, trimmedBody);
+    await sendPushNotification(
+      tokens,
+      trimmedBody,
+      message.id,
+      input.targetWorkOrderId,
+    );
   }
 
-  return {
-    id: message.id,
-    body: message.body,
-    created_at: message.createdAt,
-    sender: {
-      id: message.user.id,
-      first_name: message.user.firstName,
-      last_name: message.user.lastName,
-      role: message.user.role,
-    },
-    team: message.team
-      ? {
-          id: message.team.id,
-          name: message.team.name,
-          team_type: message.team.teamType,
-          division: message.team.division,
-        }
-      : null,
-  };
+  return mapTeamMessage(message);
 }
+
 export async function acknowledgeTeamMessage(messageId: string, userId: string) {
   await prisma.teamMessage.findUniqueOrThrow({
     where: { id: messageId },

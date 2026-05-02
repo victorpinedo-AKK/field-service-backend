@@ -233,6 +233,7 @@ model WorkOrder {
   events           WorkOrderEvent[]
   items            WorkOrderItem[]
   dispatchMessages DispatchMessage[]
+  teamMessages     TeamMessage[]
   locationPings    LocationPing[]
 
   @@index([division, internalStatus, scheduledStartAt])
@@ -441,12 +442,17 @@ model TeamMessage {
   teamId    String?
   userId    String
   body      String
+  targetWorkOrderId String?
   createdAt DateTime @default(now())
 
   team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetWorkOrder   WorkOrder? @relation(fields: [targetWorkOrderId], references: [id], onDelete: SetNull)
 
   acknowledgements TeamMessageAcknowledgement[]
+
+
+@@index([targetWorkOrderId])
 
   @@index([teamId, createdAt])
 }

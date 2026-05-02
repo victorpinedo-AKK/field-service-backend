@@ -41,11 +41,15 @@ export async function createTeamMessage(
       throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
     }
 
-    const result = await teamMessagesService.createTeamMessage({
-      userId: req.user.id,
-      role: req.user.role,
-      body: typeof req.body?.body === "string" ? req.body.body : "",
-    });
+   const result = await teamMessagesService.createTeamMessage({
+  userId: req.user.id,
+  role: req.user.role,
+  body: typeof req.body?.body === "string" ? req.body.body : "",
+  targetWorkOrderId:
+    typeof req.body?.target_work_order_id === "string"
+      ? req.body.target_work_order_id
+      : undefined,
+});
 
     return res.status(201).json({
       success: true,

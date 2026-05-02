@@ -3,31 +3,34 @@ import { AppError } from "../../common/errors/AppError";
 import type { AuthenticatedRequest } from "../../common/middleware/authMiddleware";
 import * as dispatchMessagesService from "./dispatch-messages.service";
 
+function requireUser(req: AuthenticatedRequest) {
+  if (!req.user) {
+    throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+  }
+
+  return req.user;
+}
+
 export async function createDispatchMessage(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
+    const user = requireUser(req);
 
     const result = await dispatchMessagesService.createDispatchMessage({
-      userId: req.user.id,
-      role: req.user.role,
+      userId: user.id,
+      role: user.role,
       title: typeof req.body?.title === "string" ? req.body.title : "",
       body: typeof req.body?.body === "string" ? req.body.body : "",
-      priority:
-        typeof req.body?.priority === "string" ? req.body.priority : undefined,
+      priority: typeof req.body?.priority === "string" ? req.body.priority : undefined,
       targetScope:
         typeof req.body?.target_scope === "string"
           ? (req.body.target_scope as any)
           : undefined,
       targetRole:
-        typeof req.body?.target_role === "string"
-          ? req.body.target_role
-          : undefined,
+        typeof req.body?.target_role === "string" ? req.body.target_role : undefined,
       targetUserId:
         typeof req.body?.target_user_id === "string"
           ? req.body.target_user_id
@@ -44,14 +47,12 @@ export async function createDispatchMessage(
         typeof req.body?.message_category === "string"
           ? (req.body.message_category as any)
           : undefined,
-          requiresAcknowledgement:
-  typeof req.body?.requires_acknowledgement === "boolean"
-    ? req.body.requires_acknowledgement
-    : false,
+      requiresAcknowledgement:
+        typeof req.body?.requires_acknowledgement === "boolean"
+          ? req.body.requires_acknowledgement
+          : false,
       expiresAt:
-        typeof req.body?.expires_at === "string"
-          ? req.body.expires_at
-          : undefined,
+        typeof req.body?.expires_at === "string" ? req.body.expires_at : undefined,
     });
 
     return res.status(201).json({
@@ -65,51 +66,19 @@ export async function createDispatchMessage(
   }
 }
 
-export async function getPendingBlockingMessages(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction,
-) {
-  try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
-
-    const result = await dispatchMessagesService.getPendingBlockingMessages({
-      userId: req.user.id,
-      role: req.user.role,
-      companyId: (req.user as any).companyId || null,
-      jobId:
-        typeof req.query.job_id === "string" ? req.query.job_id : undefined,
-    });
-
-    return res.status(200).json({
-      success: true,
-      data: result,
-      meta: { total: result.length },
-      error: null,
-    });
-  } catch (error) {
-    next(error);
-  }
-}
-
 export async function listDispatchMessages(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
+    const user = requireUser(req);
 
-   const result = await dispatchMessagesService.listDispatchMessages({
-  userId: req.user.id,
-  role: req.user.role,
-  companyId: req.user.companyId || null,
-      jobId:
-        typeof req.query.job_id === "string" ? req.query.job_id : undefined,
+    const result = await dispatchMessagesService.listDispatchMessages({
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId || null,
+      jobId: typeof req.query.job_id === "string" ? req.query.job_id : undefined,
       unreadOnly:
         typeof req.query.unread_only === "string"
           ? req.query.unread_only === "true"
@@ -135,20 +104,70 @@ export async function listDispatchMessages(
   }
 }
 
+export async function getDispatchMessageById(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await dispatchMessagesService.getDispatchMessageById({
+      id: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId || null,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getPendingBlockingMessages(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await dispatchMessagesService.getPendingBlockingMessages({
+      userId: user.id,
+      role: user.role,
+      companyId: user.companyId || null,
+      jobId: typeof req.query.job_id === "string" ? req.query.job_id : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function markDispatchMessageRead(
   req: AuthenticatedRequest,
   res: Response,
   next: NextFunction,
 ) {
   try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
+    const user = requireUser(req);
 
     const result = await dispatchMessagesService.markDispatchMessageRead({
       id: String(req.params.id),
-      userId: req.user.id,
-      role: req.user.role,
+      userId: user.id,
+      role: user.role,
     });
 
     return res.status(200).json({
@@ -168,14 +187,12 @@ export async function acknowledgeDispatchMessage(
   next: NextFunction,
 ) {
   try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
+    const user = requireUser(req);
 
     const result = await dispatchMessagesService.acknowledgeDispatchMessage({
       id: String(req.params.id),
-      userId: req.user.id,
-      role: req.user.role,
+      userId: user.id,
+      role: user.role,
     });
 
     return res.status(200).json({
@@ -195,22 +212,17 @@ export async function updateDispatchMessage(
   next: NextFunction,
 ) {
   try {
-    if (!req.user) {
-      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
-    }
+    const user = requireUser(req);
 
     const result = await dispatchMessagesService.updateDispatchMessage({
       id: String(req.params.id),
-      userId: req.user.id,
-      role: req.user.role,
+      userId: user.id,
+      role: user.role,
       title: typeof req.body?.title === "string" ? req.body.title : undefined,
       body: typeof req.body?.body === "string" ? req.body.body : undefined,
-      priority:
-        typeof req.body?.priority === "string" ? req.body.priority : undefined,
+      priority: typeof req.body?.priority === "string" ? req.body.priority : undefined,
       isActive:
-        typeof req.body?.is_active === "boolean"
-          ? req.body.is_active
-          : undefined,
+        typeof req.body?.is_active === "boolean" ? req.body.is_active : undefined,
       targetScope:
         typeof req.body?.target_scope === "string"
           ? (req.body.target_scope as any)
@@ -243,10 +255,10 @@ export async function updateDispatchMessage(
         typeof req.body?.message_category === "string"
           ? (req.body.message_category as any)
           : undefined,
-          requiresAcknowledgement:
-  typeof req.body?.requires_acknowledgement === "boolean"
-    ? req.body.requires_acknowledgement
-    : undefined,
+      requiresAcknowledgement:
+        typeof req.body?.requires_acknowledgement === "boolean"
+          ? req.body.requires_acknowledgement
+          : undefined,
       expiresAt:
         req.body?.expires_at === null
           ? null

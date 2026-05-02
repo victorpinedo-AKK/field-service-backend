@@ -340,6 +340,8 @@ export async function createDispatchMessage(
   };
 }
 
+
+
 export async function listDispatchMessages(
   input: ListDispatchMessagesInput,
 ) {
@@ -729,4 +731,29 @@ export async function updateDispatchMessage(
       },
     })),
   };
+}
+export async function getDispatchMessageById({
+  id,
+  userId,
+  role,
+  companyId,
+}: {
+  id: string;
+  userId: string;
+  role: string;
+  companyId: string | null;
+}) {
+  const messages = await listDispatchMessages({
+    userId,
+    role,
+    companyId,
+  });
+
+  const message = messages.find((m: any) => m.id === id);
+
+  if (!message) {
+    throw new AppError("Dispatch message not found.", 404, "NOT_FOUND");
+  }
+
+  return message;
 }
