@@ -23,6 +23,9 @@ function assertAllowedRole(role: string) {
 }
 
 async function sendPushNotification(tokens: string[], message: string) {
+  const isUrgent =
+    message.toLowerCase().includes("@urgent") ||
+    message.toLowerCase().includes("urgent");
   const response = await fetch("https://exp.host/--/api/v2/push/send", {
     method: "POST",
     headers: {

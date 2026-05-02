@@ -7,6 +7,7 @@ import dispatchMessagesRoutes from "../modules/dispatch-messages/dispatch-messag
 import teamMessagesRoutes from "../modules/team-messages/team-messages.routes";
 import locationPingsRoutes from "../modules/location-pings/location-pings.routes";
 import pushTokensRoutes from "../modules/push-tokens/push-tokens.routes";
+import teamMessageMediaRoutes from "../modules/team-messages/team-messages.media.routes";
 
 const router = Router();
 
@@ -27,5 +28,6 @@ router.use("/dispatch-messages", dispatchMessagesRoutes);
 router.use("/team-messages", teamMessagesRoutes);
 router.use("/location-pings", locationPingsRoutes);
 router.use("/push-tokens", pushTokensRoutes);
+router.use("/team-messages/media", teamMessageMediaRoutes);
 
 export default router;
