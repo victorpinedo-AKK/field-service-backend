@@ -111,17 +111,18 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  company                     Company?                     @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  assignments                 WorkOrderAssignment[]
-  dispatchMessagesCreated     DispatchMessage[]            @relation("DispatchMessageCreatedBy")
-  dispatchMessagesTargeted    DispatchMessage[]            @relation("DispatchMessageTargetUser")
-  dispatchMessageReads        DispatchMessageRead[]
-  workOrderNotes              WorkOrderNote[]
-  locationLogs                UserLocationLog[]
-  locationPings               LocationPing[]
-  teamMessages                TeamMessage[]
-  pushTokens                  UserPushToken[]
+  company                  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignments              WorkOrderAssignment[]
+  dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
+  dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
+  dispatchMessageReads     DispatchMessageRead[]
+  workOrderNotes           WorkOrderNote[]
+  locationLogs             UserLocationLog[]
+  locationPings            LocationPing[]
+  teamMessages             TeamMessage[]
   teamMessageAcknowledgements TeamMessageAcknowledgement[]
+  pushTokens UserPushToken[]
+
 
   @@index([companyId])
   @@index([role, isActive])
@@ -348,6 +349,7 @@ model HotShotDetails {
   acceptedAt        DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
+  
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
@@ -455,8 +457,10 @@ model TeamMessageAcknowledgement {
   userId        String
   createdAt     DateTime @default(now())
 
-  teamMessage TeamMessage @relation(fields: [teamMessageId], references: [id], onDelete: Cascade)
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  teamMessage   TeamMessage @relation(fields: [teamMessageId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+
 
   @@unique([teamMessageId, userId])
 }
