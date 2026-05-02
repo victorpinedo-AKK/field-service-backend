@@ -15,4 +15,5 @@ router.post("/:id/read", authMiddleware, dispatchMessagesController.markDispatch
 router.post("/:id/acknowledge", authMiddleware, dispatchMessagesController.acknowledgeDispatchMessage);
 router.patch("/:id", authMiddleware, dispatchMessagesController.updateDispatchMessage);
 
+
 export default router;

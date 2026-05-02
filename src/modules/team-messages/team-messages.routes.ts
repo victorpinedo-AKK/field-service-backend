@@ -7,4 +7,10 @@ const router = Router();
 router.get("/", authMiddleware, teamMessagesController.listTeamMessages);
 router.post("/", authMiddleware, teamMessagesController.createTeamMessage);
 
+router.post(
+  "/:id/acknowledge",
+  authMiddleware,
+  teamMessagesController.acknowledgeTeamMessage,
+);
+
 export default router;

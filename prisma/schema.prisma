@@ -111,16 +111,17 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  company                  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  assignments              WorkOrderAssignment[]
-  dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
-  dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
-  dispatchMessageReads     DispatchMessageRead[]
-  workOrderNotes           WorkOrderNote[]
-  locationLogs             UserLocationLog[]
-  locationPings            LocationPing[]
-  teamMessages             TeamMessage[]
-  pushTokens UserPushToken[]
+  company                     Company?                     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignments                 WorkOrderAssignment[]
+  dispatchMessagesCreated     DispatchMessage[]            @relation("DispatchMessageCreatedBy")
+  dispatchMessagesTargeted    DispatchMessage[]            @relation("DispatchMessageTargetUser")
+  dispatchMessageReads        DispatchMessageRead[]
+  workOrderNotes              WorkOrderNote[]
+  locationLogs                UserLocationLog[]
+  locationPings               LocationPing[]
+  teamMessages                TeamMessage[]
+  pushTokens                  UserPushToken[]
+  teamMessageAcknowledgements TeamMessageAcknowledgement[]
 
   @@index([companyId])
   @@index([role, isActive])
@@ -347,7 +348,6 @@ model HotShotDetails {
   acceptedAt        DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
-  
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
@@ -444,5 +444,19 @@ model TeamMessage {
   team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
   user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  acknowledgements TeamMessageAcknowledgement[]
+
   @@index([teamId, createdAt])
+}
+
+model TeamMessageAcknowledgement {
+  id            String   @id @default(uuid())
+  teamMessageId String
+  userId        String
+  createdAt     DateTime @default(now())
+
+  teamMessage TeamMessage @relation(fields: [teamMessageId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamMessageId, userId])
 }

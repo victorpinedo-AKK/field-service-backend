@@ -23,7 +23,7 @@ function assertAllowedRole(role: string) {
 }
 
 async function sendPushNotification(tokens: string[], message: string) {
-  const isUrgent =
+const isUrgent =
     message.toLowerCase().includes("@urgent") ||
     message.toLowerCase().includes("urgent");
   const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -35,7 +35,7 @@ async function sendPushNotification(tokens: string[], message: string) {
       tokens.map((token) => ({
         to: token,
         sound: "default",
-        title: "AKK Team Message",
+        title: isUrgent ? "🚨 URGENT - AKK Team Message" : "AKK Team Message",
         body: message,
         data: { screen: "TeamMessages" },
       })),
@@ -57,6 +57,12 @@ export async function listTeamMessages(input: ListTeamMessagesInput) {
       createdAt: "desc",
     },
     include: {
+      acknowledgements: {
+        where: {
+          userId: input.userId,
+        },
+        select: { id: true },
+      },
       user: {
         select: {
           id: true,
@@ -81,6 +87,11 @@ export async function listTeamMessages(input: ListTeamMessagesInput) {
     id: message.id,
     body: message.body,
     created_at: message.createdAt,
+
+    // ✅ SAFE version
+    acknowledged_by_me:
+      (message.acknowledgements?.length ?? 0) > 0,
+
     sender: {
       id: message.user.id,
       first_name: message.user.firstName,
@@ -174,6 +185,8 @@ async function getPushTokensForTeamMessage(body: string, senderUserId: string) {
   return users.flatMap((user) => user.pushTokens.map((item) => item.token));
 }
 
+
+
 export async function createTeamMessage(input: CreateTeamMessageInput) {
   assertAllowedRole(input.role);
 
@@ -249,4 +262,25 @@ export async function createTeamMessage(input: CreateTeamMessageInput) {
         }
       : null,
   };
+}
+export async function acknowledgeTeamMessage(messageId: string, userId: string) {
+  await prisma.teamMessage.findUniqueOrThrow({
+    where: { id: messageId },
+  });
+
+  await prisma.teamMessageAcknowledgement.upsert({
+    where: {
+      teamMessageId_userId: {
+        teamMessageId: messageId,
+        userId,
+      },
+    },
+    update: {},
+    create: {
+      teamMessageId: messageId,
+      userId,
+    },
+  });
+
+  return { success: true };
 }

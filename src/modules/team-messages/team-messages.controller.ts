@@ -57,3 +57,30 @@ export async function createTeamMessage(
     next(error);
   }
 }
+export async function acknowledgeTeamMessage(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    if (!req.user) {
+      throw new AppError("Unauthorized", 401, "UNAUTHORIZED");
+    }
+
+    const messageId = String(req.params.id);
+
+    const result = await teamMessagesService.acknowledgeTeamMessage(
+      messageId,
+      req.user.id,
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
