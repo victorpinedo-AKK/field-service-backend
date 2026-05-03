@@ -4,64 +4,48 @@ import * as dispatchMessagesController from "./dispatch-messages.controller";
 
 const router = Router();
 
-/**
- * CREATE
- */
 router.post(
   "/",
   authMiddleware,
-  dispatchMessagesController.createDispatchMessage
+  dispatchMessagesController.createDispatchMessage,
 );
 
-/**
- * LIST (Inbox)
- */
 router.get(
   "/",
   authMiddleware,
-  dispatchMessagesController.listDispatchMessages
+  dispatchMessagesController.listDispatchMessages,
 );
 
-/**
- * 🔥 GET SINGLE MESSAGE (THIS WAS MISSING)
- */
-router.get(
-  "/:id",
-  authMiddleware,
-  dispatchMessagesController.getDispatchMessageById
-);
-
-/**
- * BLOCKING (must acknowledge)
- */
+// IMPORTANT: this must come before "/:id"
 router.get(
   "/pending-blocking",
   authMiddleware,
-  dispatchMessagesController.getPendingBlockingMessages
+  dispatchMessagesController.getPendingBlockingMessages,
 );
 
-/**
- * ACTIONS
- */
+// IMPORTANT: this must come after specific routes
+router.get(
+  "/:id",
+  authMiddleware,
+  dispatchMessagesController.getDispatchMessageById,
+);
+
 router.post(
   "/:id/read",
   authMiddleware,
-  dispatchMessagesController.markDispatchMessageRead
+  dispatchMessagesController.markDispatchMessageRead,
 );
 
 router.post(
   "/:id/acknowledge",
   authMiddleware,
-  dispatchMessagesController.acknowledgeDispatchMessage
+  dispatchMessagesController.acknowledgeDispatchMessage,
 );
 
-/**
- * UPDATE
- */
 router.patch(
   "/:id",
   authMiddleware,
-  dispatchMessagesController.updateDispatchMessage
+  dispatchMessagesController.updateDispatchMessage,
 );
 
 export default router;

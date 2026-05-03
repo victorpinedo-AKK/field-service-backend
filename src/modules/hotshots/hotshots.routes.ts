@@ -66,7 +66,6 @@ router.post(
   hotshotsController.finalizeHotshotMedia,
 );
 
-router.post("/jobs/:id/accept", authMiddleware, hotshotsController.acceptHotshotJob);
 
 router.post(
   "/jobs/:id/media/upload",

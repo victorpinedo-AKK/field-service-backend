@@ -1399,7 +1399,9 @@ export async function softDeleteHotshotMedia(
   input: SoftDeleteHotshotMediaInput,
 ) {
   assertHotshotRole(input.role);
-
+if (input.role !== "admin") {
+  throw new AppError("Only admins can delete media", 403, "FORBIDDEN");
+}
   const isFieldRole = ["installer", "delivery_lead"].includes(input.role);
   const isPrivilegedRole = ["admin", "dispatcher"].includes(input.role);
 

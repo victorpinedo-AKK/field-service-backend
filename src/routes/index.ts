@@ -8,6 +8,8 @@ import teamMessagesRoutes from "../modules/team-messages/team-messages.routes";
 import locationPingsRoutes from "../modules/location-pings/location-pings.routes";
 import pushTokensRoutes from "../modules/push-tokens/push-tokens.routes";
 import teamMessageMediaRoutes from "../modules/team-messages/team-messages.media.routes";
+import routesRoutes from "../modules/routes/routes.routes";
+
 
 const router = Router();
 
@@ -29,5 +31,6 @@ router.use("/team-messages", teamMessagesRoutes);
 router.use("/location-pings", locationPingsRoutes);
 router.use("/push-tokens", pushTokensRoutes);
 router.use("/team-messages/media", teamMessageMediaRoutes);
+router.use("/routes", routesRoutes);
 
 export default router;
