@@ -10,6 +10,7 @@ import pushTokensRoutes from "../modules/push-tokens/push-tokens.routes";
 import teamMessageMediaRoutes from "../modules/team-messages/team-messages.media.routes";
 import routesRoutes from "../modules/routes/routes.routes";
 
+import constructionRoutes from "../modules/construction/construction.routes";
 
 const router = Router();
 
@@ -32,5 +33,7 @@ router.use("/location-pings", locationPingsRoutes);
 router.use("/push-tokens", pushTokensRoutes);
 router.use("/team-messages/media", teamMessageMediaRoutes);
 router.use("/routes", routesRoutes);
+
+router.use("/construction", constructionRoutes);
 
 export default router;

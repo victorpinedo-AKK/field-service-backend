@@ -123,6 +123,7 @@ model User {
   teamMessageAcknowledgements TeamMessageAcknowledgement[]
   pushTokens UserPushToken[]
 
+  constructionTimeEntries ConstructionTimeEntry[]
 
   @@index([companyId])
   @@index([role, isActive])
@@ -235,6 +236,8 @@ model WorkOrder {
   dispatchMessages DispatchMessage[]
   teamMessages     TeamMessage[]
   locationPings    LocationPing[]
+
+  constructionTimeEntries ConstructionTimeEntry[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
@@ -469,4 +472,28 @@ model TeamMessageAcknowledgement {
 
 
   @@unique([teamMessageId, userId])
+}
+
+model ConstructionTimeEntry {
+  id          String    @id @default(uuid())
+  workOrderId String
+  userId      String
+
+  clockInAt   DateTime
+  clockOutAt  DateTime?
+
+  clockInLat  Float?
+  clockInLng  Float?
+  clockOutLat Float?
+  clockOutLng Float?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  user        User      @relation(fields: [userId], references: [id])
+
+  @@index([workOrderId])
+  @@index([userId])
+  @@index([clockOutAt])
 }
