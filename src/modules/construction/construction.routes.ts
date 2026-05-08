@@ -14,12 +14,6 @@ router.get(
 );
 
 router.get(
-  "/sites/:id",
-  authMiddleware,
-  constructionController.getConstructionSiteDetail,
-);
-
-router.get(
   "/sites/:id/current-time-entry",
   authMiddleware,
   constructionController.getCurrentTimeEntry,
@@ -56,6 +50,7 @@ router.get(
   constructionController.getDailyConstructionReport,
 );
 
+
 router.post(
   "/sites/:id/media/upload",
   authMiddleware,
@@ -67,6 +62,12 @@ router.get(
   "/sites/:id/activity",
   authMiddleware,
   constructionController.getConstructionActivityFeed,
+);
+
+router.get(
+  "/sites/:id",
+  authMiddleware,
+  constructionController.getConstructionSiteDetail,
 );
 
 router.delete(

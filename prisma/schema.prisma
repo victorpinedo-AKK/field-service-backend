@@ -127,6 +127,9 @@ model User {
   assignedConstructionTasks ConstructionTask[]
   submittedConstructionDailyReports ConstructionDailyReport[]
 
+  constructionTaskNotesCreated ConstructionTaskNote[]
+  constructionTaskMediaCreated ConstructionTaskMedia[]
+
   @@index([companyId])
   @@index([role, isActive])
 }
