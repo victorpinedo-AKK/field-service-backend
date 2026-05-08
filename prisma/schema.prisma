@@ -124,6 +124,8 @@ model User {
   pushTokens UserPushToken[]
 
   constructionTimeEntries ConstructionTimeEntry[]
+  assignedConstructionTasks ConstructionTask[]
+  submittedConstructionDailyReports ConstructionDailyReport[]
 
   @@index([companyId])
   @@index([role, isActive])
@@ -238,6 +240,8 @@ model WorkOrder {
   locationPings    LocationPing[]
 
   constructionTimeEntries ConstructionTimeEntry[]
+  constructionTasks ConstructionTask[]
+  constructionDailyReports ConstructionDailyReport[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
@@ -496,4 +500,85 @@ model ConstructionTimeEntry {
   @@index([workOrderId])
   @@index([userId])
   @@index([clockOutAt])
+}
+
+model ConstructionTask {
+  id          String   @id @default(uuid())
+  workOrderId String
+  title       String
+  trade       String
+  status      String   @default("todo")
+  assignedToUserId String?
+  dueDate     DateTime?
+  notes       String?
+  notesList ConstructionTaskNote[]
+  media     ConstructionTaskMedia[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id])
+  assignedTo   User?     @relation(fields: [assignedToUserId], references: [id])
+
+  @@index([workOrderId])
+  @@index([assignedToUserId])
+  @@index([trade])
+  @@index([status])
+}
+
+model ConstructionTaskNote {
+  id        String   @id @default(uuid())
+  taskId    String
+  body      String
+  createdByUserId String?
+  createdAt DateTime @default(now())
+
+  task      ConstructionTask @relation(fields: [taskId], references: [id])
+  createdBy User? @relation(fields: [createdByUserId], references: [id])
+
+  @@index([taskId])
+}
+
+model ConstructionTaskMedia {
+  id              String   @id @default(uuid())
+  taskId          String
+  mediaType       String   @default("photo")
+  storageProvider String
+  objectKey       String
+  bucketName      String
+  mimeType        String?
+  originalFileName String?
+  fileSizeBytes   Int?
+  createdByUserId String?
+  deletedAt       DateTime?
+  deletedByUserId String?
+  createdAt       DateTime @default(now())
+
+  task      ConstructionTask @relation(fields: [taskId], references: [id])
+  createdBy User? @relation(fields: [createdByUserId], references: [id])
+
+  @@index([taskId])
+  @@index([deletedAt])
+}
+
+model ConstructionDailyReport {
+  id              String   @id @default(uuid())
+  workOrderId     String
+  reportDate      DateTime
+  workCompleted   String?
+  blockers        String?
+  materialsUsed   String?
+  safetyNotes     String?
+  weatherNotes    String?
+  submittedByUserId String?
+  submittedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
+  submittedBy User?     @relation(fields: [submittedByUserId], references: [id])
+
+  @@unique([workOrderId, reportDate])
+  @@index([workOrderId])
+  @@index([reportDate])
 }

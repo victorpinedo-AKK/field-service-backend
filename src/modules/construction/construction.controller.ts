@@ -143,6 +143,30 @@ export async function clockOutOfSite(
   }
 }
 
+export async function getLiveConstructionCrew(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getLiveConstructionCrew({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function listTimeEntriesForSite(
   req: AuthenticatedRequest,
   res: Response,
@@ -161,6 +185,725 @@ export async function listTimeEntriesForSite(
       success: true,
       data: result,
       meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionNote(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionNote({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      body: String(req.body?.body || ""),
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+// construction.controller.ts
+export async function getDailyConstructionReport(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getDailyConstructionReport({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      date: typeof req.query.date === "string" ? req.query.date : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function uploadConstructionMedia(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    if (!req.file) {
+      throw new AppError("File is required", 400, "INVALID_REQUEST");
+    }
+
+    const result = await constructionService.uploadConstructionMedia({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      fileBuffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalFileName: req.file.originalname,
+      fileSizeBytes: req.file.size,
+      mediaType:
+        typeof req.body?.media_type === "string"
+          ? req.body.media_type
+          : "photo",
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConstructionActivityFeed(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionActivityFeed({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteConstructionNote(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.deleteConstructionNote({
+      noteId: String(req.params.noteId),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteConstructionMedia(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.deleteConstructionMedia({
+      mediaId: String(req.params.mediaId),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getMissedClockOuts(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getMissedClockOuts({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listConstructionCrew(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.listConstructionCrew({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function assignCrewToSite(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.assignCrewToSite({
+      siteId: String(req.params.id),
+      assignedUserId: String(req.body?.user_id || ""),
+      assignmentType:
+        typeof req.body?.assignment_type === "string"
+          ? req.body.assignment_type
+          : "crew",
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeCrewFromSite(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.removeCrewFromSite({
+      siteId: String(req.params.id),
+      assignmentId: String(req.params.assignmentId),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listConstructionProjects(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.listConstructionProjects({
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionProject(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionProject({
+      userId: user.id,
+      role: user.role,
+      customerName: String(req.body?.customer_name || ""),
+      projectName: String(req.body?.project_name || ""),
+      projectType: String(req.body?.project_type || "custom_project"),
+      trades: Array.isArray(req.body?.trades)
+        ? req.body.trades.map(String)
+        : [],
+      addressLine1: String(req.body?.address_line1 || ""),
+      city: String(req.body?.city || ""),
+      state: String(req.body?.state || ""),
+      postalCode: String(req.body?.postal_code || ""),
+      dispatcherNotes: String(req.body?.dispatcher_notes || ""),
+      scheduledStartAt:
+        typeof req.body?.scheduled_start_at === "string"
+          ? req.body.scheduled_start_at
+          : null,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteConstructionProject(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.deleteConstructionProject({
+      projectId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateConstructionProjectStatus(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.updateConstructionProjectStatus({
+      projectId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      status: String(req.body?.status || ""),
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listConstructionTasks(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.listConstructionTasks({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionTask(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionTask({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      title: String(req.body?.title || ""),
+      trade: String(req.body?.trade || ""),
+      assignedToUserId:
+        typeof req.body?.assigned_to_user_id === "string"
+          ? req.body.assigned_to_user_id
+          : null,
+      dueDate:
+        typeof req.body?.due_date === "string"
+          ? req.body.due_date
+          : null,
+      notes: String(req.body?.notes || ""),
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateConstructionTask(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.updateConstructionTask({
+      taskId: String(req.params.taskId),
+      userId: user.id,
+      role: user.role,
+      status:
+        typeof req.body?.status === "string" ? req.body.status : undefined,
+      title:
+        typeof req.body?.title === "string" ? req.body.title : undefined,
+      trade:
+        typeof req.body?.trade === "string" ? req.body.trade : undefined,
+      notes:
+        typeof req.body?.notes === "string" ? req.body.notes : undefined,
+      assignedToUserId:
+        typeof req.body?.assigned_to_user_id === "string"
+          ? req.body.assigned_to_user_id
+          : undefined,
+      dueDate:
+        typeof req.body?.due_date === "string"
+          ? req.body.due_date
+          : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteConstructionTask(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.deleteConstructionTask({
+      taskId: String(req.params.taskId),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConstructionProjectProgress(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionProjectProgress({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConstructionCrewAvailability(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionCrewAvailability({
+      userId: user.id,
+      role: user.role,
+      date: typeof req.query?.date === "string" ? req.query.date : "",
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConstructionDailyReportV2(req, res, next) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionDailyReportV2({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      date: typeof req.query?.date === "string" ? req.query.date : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function saveConstructionDailyReport(req, res, next) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.saveConstructionDailyReport({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      date: String(req.body?.date || ""),
+      workCompleted: String(req.body?.work_completed || ""),
+      blockers: String(req.body?.blockers || ""),
+      materialsUsed: String(req.body?.materials_used || ""),
+      safetyNotes: String(req.body?.safety_notes || ""),
+      weatherNotes: String(req.body?.weather_notes || ""),
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function submitConstructionDailyReport(req, res, next) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.submitConstructionDailyReport({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      date: String(req.body?.date || ""),
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConstructionTaskDetail(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionTaskDetail({
+      taskId: String(req.params.taskId),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionTaskNote(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionTaskNote({
+      taskId: String(req.params.taskId),
+      userId: user.id,
+      role: user.role,
+      body: String(req.body?.body || ""),
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function uploadConstructionTaskMedia(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    if (!req.file) {
+      throw new AppError("File is required", 400, "INVALID_REQUEST");
+    }
+
+    const result = await constructionService.uploadConstructionTaskMedia({
+      taskId: String(req.params.taskId),
+      userId: user.id,
+      role: user.role,
+      fileBuffer: req.file.buffer,
+      mimeType: req.file.mimetype,
+      originalFileName: req.file.originalname,
+      fileSizeBytes: req.file.size,
+      mediaType:
+        typeof req.body?.media_type === "string"
+          ? req.body.media_type
+          : "photo",
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
       error: null,
     });
   } catch (error) {
