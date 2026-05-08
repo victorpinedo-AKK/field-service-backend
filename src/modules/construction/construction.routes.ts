@@ -64,11 +64,6 @@ router.get(
   constructionController.getConstructionActivityFeed,
 );
 
-router.get(
-  "/sites/:id",
-  authMiddleware,
-  constructionController.getConstructionSiteDetail,
-);
 
 router.delete(
   "/notes/:noteId",
@@ -191,15 +186,16 @@ router.get(
   constructionController.getConstructionDailyReportV2,
 );
 
-router.post(
-  "/sites/:id/daily-report",
-  authMiddleware,
-  constructionController.saveConstructionDailyReport,
-);
 
 router.post(
   "/sites/:id/daily-report/submit",
   authMiddleware,
   constructionController.submitConstructionDailyReport,
+);
+
+router.get(
+  "/sites/:id",
+  authMiddleware,
+  constructionController.getConstructionSiteDetail,
 );
 export default router;
