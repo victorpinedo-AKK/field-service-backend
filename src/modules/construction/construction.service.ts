@@ -2953,12 +2953,16 @@ export async function updateConstructionProjectSchedule(input: {
   assertConstructionRole(input.role);
   assertAdminConstructionRole(input.role);
 
-  if (!input.scheduledStartAt) {
+  const scheduledStartAt = input.scheduledStartAt;
+
+  if (!scheduledStartAt) {
     throw new AppError("Scheduled start date is required.", 400, "INVALID_INPUT");
   }
 
-  const startDate = new Date(input.scheduledStartAt);
-  const endDate = input.scheduledEndAt ? new Date(input.scheduledEndAt) : null;
+  const scheduledEndAt = input.scheduledEndAt || undefined;
+
+  const startDate = new Date(scheduledStartAt);
+  const endDate = scheduledEndAt ? new Date(scheduledEndAt) : null;
 
   if (Number.isNaN(startDate.getTime())) {
     throw new AppError("Invalid scheduled start date.", 400, "INVALID_DATE");
