@@ -21,18 +21,35 @@ type ClockInput = SiteInput & {
 
 const allowedRoles = ["admin", "dispatcher", "installer", "delivery_lead", "operations"];
 
+const adminConstructionRoles = ["admin", "operations", "dispatcher"];
+
 const activeConstructionStatuses = [
   JobStatus.new,
   JobStatus.ready_to_schedule,
   JobStatus.scheduled,
   JobStatus.dispatched,
   JobStatus.on_site,
+  JobStatus.follow_up_required,
 ];
 
 function assertConstructionRole(role: string) {
   if (!allowedRoles.includes(role)) {
     throw new AppError("Forbidden", 403, "FORBIDDEN");
   }
+}
+
+function assertAdminConstructionRole(role: string) {
+  if (!adminConstructionRoles.includes(role)) {
+    throw new AppError(
+      "Only admin, operations, or dispatcher can manage this construction resource.",
+      403,
+      "FORBIDDEN",
+    );
+  }
+}
+
+function isAdminConstructionRole(role: string) {
+  return adminConstructionRoles.includes(role);
 }
 
 function isFieldRole(role: string) {
@@ -65,59 +82,6 @@ function extractTrades(accessNotes?: string | null) {
     .filter(Boolean);
 }
 
-function mapSite(site: any, currentEntry?: any) {
-  return {
-    id: site.id,
-    work_order_number: site.workOrderNumber,
-    customer_reference_number: site.customerReferenceNumber,
-    division: site.division,
-    internal_status: site.internalStatus,
-    priority: site.priority,
-    scheduled_start_at: site.scheduledStartAt,
-    scheduled_end_at: site.scheduledEndAt,
-    dispatcher_notes: site.dispatcherNotes,
-    access_notes: site.accessNotes,
-
-    project_type: extractProjectType(site.accessNotes),
-    trades: extractTrades(site.accessNotes),
-
-    customer: site.customer
-      ? {
-          id: site.customer.id,
-          full_name: site.customer.fullName,
-          phone: site.customer.phone,
-          email: site.customer.email,
-        }
-      : null,
-
-    address: site.address
-      ? {
-          id: site.address.id,
-          line1: site.address.line1,
-          line2: site.address.line2,
-          city: site.address.city,
-          state: site.address.state,
-          postal_code: site.address.postalCode,
-          country: site.address.country,
-          access_notes: site.address.accessNotes,
-        }
-      : null,
-
-    assignee: site.assignments?.[0]?.user
-      ? {
-          id: site.assignments[0].user.id,
-          first_name: site.assignments[0].user.firstName,
-          last_name: site.assignments[0].user.lastName,
-          email: site.assignments[0].user.email,
-          role: site.assignments[0].user.role,
-        }
-      : null,
-
-    current_time_entry: currentEntry
-      ? mapTimeEntry(currentEntry)
-      : null,
-  };
-}
 function mapTimeEntry(entry: any) {
   if (!entry) return null;
 
@@ -135,10 +99,196 @@ function mapTimeEntry(entry: any) {
   };
 }
 
+function mapSite(site: any, currentEntry?: any) {
+  return {
+    id: site.id,
+    work_order_number: site.workOrderNumber,
+    customer_reference_number: site.customerReferenceNumber,
+    division: site.division,
+    internal_status: site.internalStatus,
+    priority: site.priority,
+    scheduled_start_at: site.scheduledStartAt,
+    scheduled_end_at: site.scheduledEndAt,
+    dispatcher_notes: site.dispatcherNotes,
+    access_notes: site.accessNotes,
+    project_type: extractProjectType(site.accessNotes),
+    trades: extractTrades(site.accessNotes),
+    customer: site.customer
+      ? {
+          id: site.customer.id,
+          full_name: site.customer.fullName,
+          phone: site.customer.phone,
+          email: site.customer.email,
+        }
+      : null,
+    address: site.address
+      ? {
+          id: site.address.id,
+          line1: site.address.line1,
+          line2: site.address.line2,
+          city: site.address.city,
+          state: site.address.state,
+          postal_code: site.address.postalCode,
+          country: site.address.country,
+          access_notes: site.address.accessNotes,
+        }
+      : null,
+    assignments: (site.assignments || []).map((assignment: any) => ({
+      id: assignment.id,
+      assignment_type: assignment.assignmentType,
+      assigned_at: assignment.assignedAt,
+      user: assignment.user
+        ? {
+            id: assignment.user.id,
+            first_name: assignment.user.firstName,
+            last_name: assignment.user.lastName,
+            email: assignment.user.email,
+            role: assignment.user.role,
+          }
+        : null,
+    })),
+    assignee: site.assignments?.[0]?.user
+      ? {
+          id: site.assignments[0].user.id,
+          first_name: site.assignments[0].user.firstName,
+          last_name: site.assignments[0].user.lastName,
+          email: site.assignments[0].user.email,
+          role: site.assignments[0].user.role,
+        }
+      : null,
+    current_time_entry: currentEntry ? mapTimeEntry(currentEntry) : null,
+  };
+}
+
+function mapConstructionTask(task: any) {
+  return {
+    id: task.id,
+    work_order_id: task.workOrderId,
+    title: task.title,
+    trade: task.trade,
+    status: task.status,
+    due_date: task.dueDate,
+    notes: task.notes,
+    created_at: task.createdAt,
+    updated_at: task.updatedAt,
+    assigned_to: task.assignedTo
+      ? {
+          id: task.assignedTo.id,
+          first_name: task.assignedTo.firstName,
+          last_name: task.assignedTo.lastName,
+          role: task.assignedTo.role,
+          email: task.assignedTo.email,
+        }
+      : null,
+  };
+}
+
+function mapConstructionTaskNote(note: any) {
+  return {
+    id: note.id,
+    task_id: note.taskId,
+    body: note.body,
+    created_at: note.createdAt,
+    created_by: note.createdBy
+      ? {
+          id: note.createdBy.id,
+          first_name: note.createdBy.firstName,
+          last_name: note.createdBy.lastName,
+          role: note.createdBy.role,
+        }
+      : null,
+  };
+}
+
+function mapConstructionTaskMedia(media: any) {
+  return {
+    id: media.id,
+    task_id: media.taskId,
+    media_type: media.mediaType,
+    object_key: media.objectKey,
+    url: `${env.R2_PUBLIC_BASE_URL}/${media.objectKey}`,
+    created_at: media.createdAt,
+  };
+}
+
+function mapDailyReport(report: any) {
+  if (!report) return null;
+
+  return {
+    id: report.id,
+    work_order_id: report.workOrderId,
+    report_date: report.reportDate,
+    work_completed: report.workCompleted,
+    blockers: report.blockers,
+    materials_used: report.materialsUsed,
+    safety_notes: report.safetyNotes,
+    weather_notes: report.weatherNotes,
+    submitted_at: report.submittedAt,
+    submitted_by: report.submittedBy
+      ? {
+          id: report.submittedBy.id,
+          first_name: report.submittedBy.firstName,
+          last_name: report.submittedBy.lastName,
+          role: report.submittedBy.role,
+        }
+      : null,
+    created_at: report.createdAt,
+    updated_at: report.updatedAt,
+  };
+}
+
+function mapConstructionPunchItem(item: any) {
+  return {
+    id: item.id,
+    work_order_id: item.workOrderId,
+    title: item.title,
+    trade: item.trade,
+    priority: item.priority,
+    status: item.status,
+    notes: item.notes,
+    completed_at: item.completedAt,
+    created_at: item.createdAt,
+    updated_at: item.updatedAt,
+    assigned_to: item.assignedTo
+      ? {
+          id: item.assignedTo.id,
+          first_name: item.assignedTo.firstName,
+          last_name: item.assignedTo.lastName,
+          role: item.assignedTo.role,
+          email: item.assignedTo.email,
+        }
+      : null,
+    created_by: item.createdBy
+      ? {
+          id: item.createdBy.id,
+          first_name: item.createdBy.firstName,
+          last_name: item.createdBy.lastName,
+          role: item.createdBy.role,
+        }
+      : null,
+  };
+}
+
+function getReportDayRange(date?: string) {
+  const selected = date ? new Date(`${date}T12:00:00.000Z`) : new Date();
+
+  if (Number.isNaN(selected.getTime())) {
+    throw new AppError("Invalid report date.", 400, "INVALID_DATE");
+  }
+
+  const start = new Date(selected);
+  start.setUTCHours(0, 0, 0, 0);
+
+  const end = new Date(selected);
+  end.setUTCHours(23, 59, 59, 999);
+
+  return { start, end, dateKey: start.toISOString().slice(0, 10) };
+}
+
 export async function getLiveConstructionCrew(input: RoleInput) {
   assertConstructionRole(input.role);
 
-  if (!["admin", "dispatcher", "operations"].includes(input.role)) {
+  if (!isAdminConstructionRole(input.role)) {
     throw new AppError(
       "Only admin, dispatcher, or operations can view live crew.",
       403,
@@ -343,15 +493,35 @@ export async function listTimeEntriesForSite(input: SiteInput) {
   const entries = await prisma.constructionTimeEntry.findMany({
     where: {
       workOrderId: input.siteId,
-      userId: input.userId,
+      ...(isFieldRole(input.role) ? { userId: input.userId } : {}),
     },
     orderBy: {
       clockInAt: "desc",
     },
-    take: 10,
+    take: 25,
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
   });
 
-  return entries.map(mapTimeEntry);
+  return entries.map((entry) => ({
+    ...mapTimeEntry(entry),
+    user: entry.user
+      ? {
+          id: entry.user.id,
+          first_name: entry.user.firstName,
+          last_name: entry.user.lastName,
+          role: entry.user.role,
+        }
+      : null,
+  }));
 }
 
 export async function clockInToSite(input: ClockInput) {
@@ -538,183 +708,6 @@ export async function createConstructionNote(input: {
   };
 }
 
-// construction.service.ts
-export async function getDailyConstructionReport(input: {
-  siteId: string;
-  userId: string;
-  role: string;
-  date?: string;
-}) {
-  assertConstructionRole(input.role);
-
-  const fieldRole = isFieldRole(input.role);
-
-  const selectedDate = input.date ? new Date(input.date) : new Date();
-
-  const start = new Date(selectedDate);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(selectedDate);
-  end.setHours(23, 59, 59, 999);
-
-  const site = await prisma.workOrder.findFirst({
-    where: {
-      id: input.siteId,
-      division: "construction",
-      ...(fieldRole
-        ? {
-            assignments: {
-              some: {
-                userId: input.userId,
-                isActive: true,
-              },
-            },
-          }
-        : {}),
-    },
-    include: {
-      customer: true,
-      address: true,
-    },
-  });
-
-  if (!site) {
-    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
-  }
-
-  const [timeEntries, notes, media] = await Promise.all([
-    prisma.constructionTimeEntry.findMany({
-      where: {
-        workOrderId: site.id,
-        clockInAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      orderBy: { clockInAt: "asc" },
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-      },
-    }),
-
-    prisma.workOrderNote.findMany({
-      where: {
-        workOrderId: site.id,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      orderBy: { createdAt: "asc" },
-      include: {
-        createdBy: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            role: true,
-          },
-        },
-      },
-    }),
-
-    prisma.workOrderMedia.findMany({
-      where: {
-        workOrderId: site.id,
-        deletedAt: null,
-        createdAt: {
-          gte: start,
-          lte: end,
-        },
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-  ]);
-
-  const totalMinutes = timeEntries.reduce((sum, entry) => {
-    if (!entry.clockOutAt) return sum;
-
-    const diff = Math.max(
-      0,
-      Math.floor((entry.clockOutAt.getTime() - entry.clockInAt.getTime()) / 60000),
-    );
-
-    return sum + diff;
-  }, 0);
-
-  return {
-    date: start.toISOString().slice(0, 10),
-    site: {
-      id: site.id,
-      work_order_number: site.workOrderNumber,
-      internal_status: site.internalStatus,
-      customer: {
-        id: site.customer.id,
-        full_name: site.customer.fullName,
-        phone: site.customer.phone,
-        email: site.customer.email,
-      },
-      address: {
-        id: site.address.id,
-        line1: site.address.line1,
-        line2: site.address.line2,
-        city: site.address.city,
-        state: site.address.state,
-        postal_code: site.address.postalCode,
-      },
-    },
-    summary: {
-      total_minutes: totalMinutes,
-      time_entries_count: timeEntries.length,
-      notes_count: notes.length,
-      photos_count: media.length,
-    },
-    time_entries: timeEntries.map((entry) => ({
-      id: entry.id,
-      clock_in_at: entry.clockInAt,
-      clock_out_at: entry.clockOutAt,
-      clock_in_lat: entry.clockInLat,
-      clock_in_lng: entry.clockInLng,
-      clock_out_lat: entry.clockOutLat,
-      clock_out_lng: entry.clockOutLng,
-      user: {
-        id: entry.user.id,
-        first_name: entry.user.firstName,
-        last_name: entry.user.lastName,
-        role: entry.user.role,
-      },
-    })),
-    notes: notes.map((note) => ({
-      id: note.id,
-      body: note.body,
-      note_type: note.noteType,
-      created_at: note.createdAt,
-      created_by: note.createdBy
-        ? {
-            id: note.createdBy.id,
-            first_name: note.createdBy.firstName,
-            last_name: note.createdBy.lastName,
-            role: note.createdBy.role,
-          }
-        : null,
-    })),
-    photos: media.map((item) => ({
-      id: item.id,
-      media_type: item.mediaType,
-      original_file_name: item.originalFileName,
-      created_at: item.createdAt,
-      url: `${env.R2_PUBLIC_BASE_URL}/${item.objectKey}`,
-    })),
-  };
-}
-
 export async function uploadConstructionMedia(input: {
   siteId: string;
   userId: string;
@@ -854,10 +847,7 @@ export async function deleteConstructionNote(input: {
   role: string;
 }) {
   assertConstructionRole(input.role);
-
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
-    throw new AppError("Only admin, operations, or dispatcher can delete notes.", 403, "FORBIDDEN");
-  }
+  assertAdminConstructionRole(input.role);
 
   const note = await prisma.workOrderNote.findFirst({
     where: {
@@ -900,10 +890,7 @@ export async function deleteConstructionMedia(input: {
   role: string;
 }) {
   assertConstructionRole(input.role);
-
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
-    throw new AppError("Only admin, operations, or dispatcher can delete photos.", 403, "FORBIDDEN");
-  }
+  assertAdminConstructionRole(input.role);
 
   const media = await prisma.workOrderMedia.findFirst({
     where: {
@@ -949,7 +936,7 @@ export async function deleteConstructionMedia(input: {
 export async function getMissedClockOuts(input: RoleInput) {
   assertConstructionRole(input.role);
 
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
+  if (!isAdminConstructionRole(input.role)) {
     throw new AppError(
       "Only admin, operations, or dispatcher can view missed clock-outs.",
       403,
@@ -1032,12 +1019,6 @@ export async function getMissedClockOuts(input: RoleInput) {
       },
     };
   });
-}
-
-function assertAdminConstructionRole(role: string) {
-  if (!["admin", "operations", "dispatcher"].includes(role)) {
-    throw new AppError("Only admin, operations, or dispatcher can manage crew assignments.", 403, "FORBIDDEN");
-  }
 }
 
 export async function listConstructionCrew(input: RoleInput) {
@@ -1133,13 +1114,13 @@ export async function assignCrewToSite(input: {
   }
 
   const assignment = await prisma.workOrderAssignment.create({
-  data: {
-    workOrderId: input.siteId,
-    userId: crewUser.id,
-    assignmentType: "crew",
-    isActive: true,
-  },
-});
+    data: {
+      workOrderId: site.id,
+      userId: crewUser.id,
+      assignmentType: input.assignmentType || "crew",
+      isActive: true,
+    },
+  });
 
   await prisma.workOrderEvent.create({
     data: {
@@ -1221,9 +1202,7 @@ export async function removeCrewFromSite(input: {
       metadata: {
         assignmentId: assignment.id,
         removedUserId: assignment.user?.id,
-        removedUserName: assignment.user
-          ? `${assignment.user.firstName} ${assignment.user.lastName}`
-          : null,
+        removedUserName: assignment.user ? `${assignment.user.firstName} ${assignment.user.lastName}` : null,
       },
     },
   });
@@ -1237,7 +1216,7 @@ export async function removeCrewFromSite(input: {
 export async function listConstructionProjects(input: RoleInput) {
   assertConstructionRole(input.role);
 
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
+  if (!isAdminConstructionRole(input.role)) {
     throw new AppError(
       "Only admin, operations, or dispatcher can manage construction projects.",
       403,
@@ -1268,24 +1247,20 @@ export async function listConstructionProjects(input: RoleInput) {
         },
       },
       constructionTasks: true,
+      constructionPunchItems: true,
     },
   });
 
   return projects.map((project) => {
     const mapped = mapSite(project);
-
     const total = project.constructionTasks.length;
-    const completed = project.constructionTasks.filter(
-      (task) => task.status === "completed",
-    ).length;
-    const blocked = project.constructionTasks.filter(
-      (task) => task.status === "blocked",
-    ).length;
+    const completed = project.constructionTasks.filter((task) => task.status === "completed").length;
+    const blocked = project.constructionTasks.filter((task) => task.status === "blocked").length;
     const overdue = project.constructionTasks.filter(
-      (task) =>
-        task.dueDate &&
-        task.dueDate < new Date() &&
-        task.status !== "completed",
+      (task) => task.dueDate && task.dueDate < new Date() && task.status !== "completed",
+    ).length;
+    const openPunchItems = project.constructionPunchItems.filter(
+      (item) => !["completed", "cancelled"].includes(item.status),
     ).length;
 
     return {
@@ -1295,8 +1270,8 @@ export async function listConstructionProjects(input: RoleInput) {
         completed,
         blocked,
         overdue,
-        completion_percent:
-          total > 0 ? Math.round((completed / total) * 100) : 0,
+        open_punch_items: openPunchItems,
+        completion_percent: total > 0 ? Math.round((completed / total) * 100) : 0,
       },
     };
   });
@@ -1317,14 +1292,7 @@ export async function createConstructionProject(input: {
   scheduledStartAt: string | null;
 }) {
   assertConstructionRole(input.role);
-
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
-    throw new AppError(
-      "Only admin, operations, or dispatcher can create construction projects.",
-      403,
-      "FORBIDDEN",
-    );
-  }
+  assertAdminConstructionRole(input.role);
 
   if (!input.customerName.trim()) {
     throw new AppError("Customer name is required.", 400, "INVALID_INPUT");
@@ -1342,9 +1310,7 @@ export async function createConstructionProject(input: {
     throw new AppError("At least one trade is required.", 400, "INVALID_INPUT");
   }
 
-  const cleanTrades = input.trades
-    .map((trade) => trade.trim())
-    .filter(Boolean);
+  const cleanTrades = input.trades.map((trade) => trade.trim()).filter(Boolean);
 
   const projectTypeLabel = input.projectType
     .replace(/_/g, " ")
@@ -1394,9 +1360,7 @@ export async function createConstructionProject(input: {
         priority: "normal",
         dispatcherNotes: input.dispatcherNotes.trim() || null,
         accessNotes,
-        scheduledStartAt: input.scheduledStartAt
-  ? new Date(input.scheduledStartAt)
-  : null,
+        scheduledStartAt: input.scheduledStartAt ? new Date(input.scheduledStartAt) : null,
         searchText: [
           workOrderNumber,
           input.customerName,
@@ -1412,7 +1376,6 @@ export async function createConstructionProject(input: {
           .join(" ")
           .toLowerCase(),
       },
-      
       include: {
         customer: true,
         address: true,
@@ -1460,14 +1423,7 @@ export async function deleteConstructionProject(input: {
   role: string;
 }) {
   assertConstructionRole(input.role);
-
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
-    throw new AppError(
-      "Only admin, operations, or dispatcher can delete construction projects.",
-      403,
-      "FORBIDDEN",
-    );
-  }
+  assertAdminConstructionRole(input.role);
 
   const project = await prisma.workOrder.findFirst({
     where: {
@@ -1517,14 +1473,7 @@ export async function updateConstructionProjectStatus(input: {
   status: string;
 }) {
   assertConstructionRole(input.role);
-
-  if (!["admin", "operations", "dispatcher"].includes(input.role)) {
-    throw new AppError(
-      "Only admin, operations, or dispatcher can update construction project status.",
-      403,
-      "FORBIDDEN",
-    );
-  }
+  assertAdminConstructionRole(input.role);
 
   const allowedStatuses = [
     "ready_to_schedule",
@@ -1592,29 +1541,6 @@ export async function updateConstructionProjectStatus(input: {
   return mapSite(updated);
 }
 
-function mapConstructionTask(task: any) {
-  return {
-    id: task.id,
-    work_order_id: task.workOrderId,
-    title: task.title,
-    trade: task.trade,
-    status: task.status,
-    due_date: task.dueDate,
-    notes: task.notes,
-    created_at: task.createdAt,
-    updated_at: task.updatedAt,
-    assigned_to: task.assignedTo
-      ? {
-          id: task.assignedTo.id,
-          first_name: task.assignedTo.firstName,
-          last_name: task.assignedTo.lastName,
-          role: task.assignedTo.role,
-          email: task.assignedTo.email,
-        }
-      : null,
-  };
-}
-
 export async function listConstructionTasks(input: SiteInput) {
   assertConstructionRole(input.role);
 
@@ -1645,10 +1571,7 @@ export async function listConstructionTasks(input: SiteInput) {
       workOrderId: site.id,
       ...(isFieldRole(input.role)
         ? {
-            OR: [
-              { assignedToUserId: input.userId },
-              { assignedToUserId: null },
-            ],
+            OR: [{ assignedToUserId: input.userId }, { assignedToUserId: null }],
           }
         : {}),
     },
@@ -1681,7 +1604,6 @@ export async function createConstructionTask(input: {
 }) {
   assertConstructionRole(input.role);
   assertAdminConstructionRole(input.role);
-  
 
   if (!input.title.trim()) {
     throw new AppError("Task title is required.", 400, "INVALID_INPUT");
@@ -1768,7 +1690,7 @@ export async function updateConstructionTask(input: {
     throw new AppError("Task not found", 404, "TASK_NOT_FOUND");
   }
 
-  const adminView = ["admin", "operations", "dispatcher"].includes(input.role);
+  const adminView = isAdminConstructionRole(input.role);
 
   if (!adminView && task.assignedToUserId !== input.userId) {
     throw new AppError("You can only update tasks assigned to you.", 403, "FORBIDDEN");
@@ -1783,12 +1705,8 @@ export async function updateConstructionTask(input: {
   const updated = await prisma.constructionTask.update({
     where: { id: task.id },
     data: {
-      ...(adminView && input.title !== undefined
-        ? { title: input.title.trim() }
-        : {}),
-      ...(adminView && input.trade !== undefined
-        ? { trade: input.trade.trim() }
-        : {}),
+      ...(adminView && input.title !== undefined ? { title: input.title.trim() } : {}),
+      ...(adminView && input.trade !== undefined ? { trade: input.trade.trim() } : {}),
       ...(input.status !== undefined ? { status: input.status } : {}),
       ...(adminView && input.assignedToUserId !== undefined
         ? { assignedToUserId: input.assignedToUserId || null }
@@ -1796,9 +1714,7 @@ export async function updateConstructionTask(input: {
       ...(adminView && input.dueDate !== undefined
         ? { dueDate: input.dueDate ? new Date(input.dueDate) : null }
         : {}),
-      ...(input.notes !== undefined
-        ? { notes: input.notes.trim() || null }
-        : {}),
+      ...(input.notes !== undefined ? { notes: input.notes.trim() || null } : {}),
     },
     include: {
       assignedTo: {
@@ -1898,25 +1814,40 @@ export async function getConstructionProjectProgress(input: SiteInput) {
     throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
   }
 
-  const tasks = await prisma.constructionTask.findMany({
-    where: {
-      workOrderId: site.id,
-      ...(isFieldRole(input.role)
-        ? {
-            OR: [
-              { assignedToUserId: input.userId },
-              { assignedToUserId: null },
-            ],
-          }
-        : {}),
-    },
-    select: {
-      id: true,
-      status: true,
-      dueDate: true,
-      trade: true,
-    },
-  });
+  const [tasks, punchItems] = await Promise.all([
+    prisma.constructionTask.findMany({
+      where: {
+        workOrderId: site.id,
+        ...(isFieldRole(input.role)
+          ? {
+              OR: [{ assignedToUserId: input.userId }, { assignedToUserId: null }],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        dueDate: true,
+        trade: true,
+      },
+    }),
+    prisma.constructionPunchItem.findMany({
+      where: {
+        workOrderId: site.id,
+        ...(isFieldRole(input.role)
+          ? {
+              OR: [{ assignedToUserId: input.userId }, { assignedToUserId: null }],
+            }
+          : {}),
+      },
+      select: {
+        id: true,
+        status: true,
+        priority: true,
+        trade: true,
+      },
+    }),
+  ]);
 
   const now = new Date();
 
@@ -1926,14 +1857,15 @@ export async function getConstructionProjectProgress(input: SiteInput) {
   const blocked = tasks.filter((task) => task.status === "blocked").length;
   const todo = tasks.filter((task) => task.status === "todo").length;
   const overdue = tasks.filter(
-    (task) =>
-      task.dueDate &&
-      task.dueDate < now &&
-      task.status !== "completed",
+    (task) => task.dueDate && task.dueDate < now && task.status !== "completed",
   ).length;
 
-  const completionPercent =
-    total > 0 ? Math.round((completed / total) * 100) : 0;
+  const openPunchItems = punchItems.filter((item) => !["completed", "cancelled"].includes(item.status)).length;
+  const urgentPunchItems = punchItems.filter(
+    (item) => item.priority === "urgent" && !["completed", "cancelled"].includes(item.status),
+  ).length;
+
+  const completionPercent = total > 0 ? Math.round((completed / total) * 100) : 0;
 
   const byTrade = tasks.reduce<Record<string, any>>((acc, task) => {
     const trade = task.trade || "Unassigned";
@@ -1966,8 +1898,7 @@ export async function getConstructionProjectProgress(input: SiteInput) {
   }, {});
 
   Object.values(byTrade).forEach((item: any) => {
-    item.completion_percent =
-      item.total > 0 ? Math.round((item.completed / item.total) * 100) : 0;
+    item.completion_percent = item.total > 0 ? Math.round((item.completed / item.total) * 100) : 0;
   });
 
   return {
@@ -1977,6 +1908,8 @@ export async function getConstructionProjectProgress(input: SiteInput) {
     blocked,
     todo,
     overdue,
+    open_punch_items: openPunchItems,
+    urgent_punch_items: urgentPunchItems,
     completion_percent: completionPercent,
     by_trade: Object.values(byTrade),
   };
@@ -2081,9 +2014,7 @@ export async function getConstructionCrewAvailability(input: {
       workload_count: assignments.length,
       reason: available
         ? null
-        : `Already assigned to ${assignments
-            .map((item) => item.workOrder.workOrderNumber)
-            .join(", ")}`,
+        : `Already assigned to ${assignments.map((item) => item.workOrder.workOrderNumber).join(", ")}`,
       assignments: assignments.map((item) => ({
         assignment_id: item.id,
         project_id: item.workOrder.id,
@@ -2095,48 +2026,6 @@ export async function getConstructionCrewAvailability(input: {
       })),
     };
   });
-}
-
-function getReportDayRange(date?: string) {
-  const selected = date ? new Date(`${date}T12:00:00.000Z`) : new Date();
-
-  if (Number.isNaN(selected.getTime())) {
-    throw new AppError("Invalid report date.", 400, "INVALID_DATE");
-  }
-
-  const start = new Date(selected);
-  start.setUTCHours(0, 0, 0, 0);
-
-  const end = new Date(selected);
-  end.setUTCHours(23, 59, 59, 999);
-
-  return { start, end, dateKey: start.toISOString().slice(0, 10) };
-}
-
-function mapDailyReport(report: any) {
-  if (!report) return null;
-
-  return {
-    id: report.id,
-    work_order_id: report.workOrderId,
-    report_date: report.reportDate,
-    work_completed: report.workCompleted,
-    blockers: report.blockers,
-    materials_used: report.materialsUsed,
-    safety_notes: report.safetyNotes,
-    weather_notes: report.weatherNotes,
-    submitted_at: report.submittedAt,
-    submitted_by: report.submittedBy
-      ? {
-          id: report.submittedBy.id,
-          first_name: report.submittedBy.firstName,
-          last_name: report.submittedBy.lastName,
-          role: report.submittedBy.role,
-        }
-      : null,
-    created_at: report.createdAt,
-    updated_at: report.updatedAt,
-  };
 }
 
 export async function getConstructionDailyReportV2(input: {
@@ -2207,7 +2096,6 @@ export async function getConstructionDailyReportV2(input: {
         },
       },
     }),
-
     prisma.constructionTimeEntry.findMany({
       where: {
         workOrderId: site.id,
@@ -2228,7 +2116,6 @@ export async function getConstructionDailyReportV2(input: {
         },
       },
     }),
-
     prisma.workOrderNote.findMany({
       where: {
         workOrderId: site.id,
@@ -2249,7 +2136,6 @@ export async function getConstructionDailyReportV2(input: {
         },
       },
     }),
-
     prisma.workOrderMedia.findMany({
       where: {
         workOrderId: site.id,
@@ -2261,7 +2147,6 @@ export async function getConstructionDailyReportV2(input: {
       },
       orderBy: { createdAt: "asc" },
     }),
-
     prisma.constructionTask.findMany({
       where: {
         workOrderId: site.id,
@@ -2287,13 +2172,7 @@ export async function getConstructionDailyReportV2(input: {
   const totalMinutes = timeEntries.reduce((sum, entry) => {
     if (!entry.clockOutAt) return sum;
 
-    return (
-      sum +
-      Math.max(
-        0,
-        Math.floor((entry.clockOutAt.getTime() - entry.clockInAt.getTime()) / 60000),
-      )
-    );
+    return sum + Math.max(0, Math.floor((entry.clockOutAt.getTime() - entry.clockInAt.getTime()) / 60000));
   }, 0);
 
   return {
@@ -2519,34 +2398,6 @@ export async function submitConstructionDailyReport(input: {
   return mapDailyReport(report);
 }
 
-function mapConstructionTaskNote(note: any) {
-  return {
-    id: note.id,
-    task_id: note.taskId,
-    body: note.body,
-    created_at: note.createdAt,
-    created_by: note.createdBy
-      ? {
-          id: note.createdBy.id,
-          first_name: note.createdBy.firstName,
-          last_name: note.createdBy.lastName,
-          role: note.createdBy.role,
-        }
-      : null,
-  };
-}
-
-function mapConstructionTaskMedia(media: any) {
-  return {
-    id: media.id,
-    task_id: media.taskId,
-    media_type: media.mediaType,
-    object_key: media.objectKey,
-    url: `${env.R2_PUBLIC_BASE_URL}/${media.objectKey}`,
-    created_at: media.createdAt,
-  };
-}
-
 export async function getConstructionTaskDetail(input: {
   taskId: string;
   userId: string;
@@ -2604,6 +2455,20 @@ export async function getConstructionTaskDetail(input: {
         include: {
           customer: true,
           address: true,
+          assignments: {
+            where: { isActive: true },
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  email: true,
+                  role: true,
+                },
+              },
+            },
+          },
         },
       },
     },
@@ -2613,11 +2478,7 @@ export async function getConstructionTaskDetail(input: {
     throw new AppError("Task not found", 404, "TASK_NOT_FOUND");
   }
 
-  if (
-    isFieldRole(input.role) &&
-    task.assignedToUserId &&
-    task.assignedToUserId !== input.userId
-  ) {
+  if (isFieldRole(input.role) && task.assignedToUserId && task.assignedToUserId !== input.userId) {
     throw new AppError("You can only view tasks assigned to you.", 403, "FORBIDDEN");
   }
 
@@ -2666,11 +2527,7 @@ export async function createConstructionTaskNote(input: {
     throw new AppError("Task not found", 404, "TASK_NOT_FOUND");
   }
 
-  if (
-    isFieldRole(input.role) &&
-    task.assignedToUserId &&
-    task.assignedToUserId !== input.userId
-  ) {
+  if (isFieldRole(input.role) && task.assignedToUserId && task.assignedToUserId !== input.userId) {
     throw new AppError("You can only add notes to tasks assigned to you.", 403, "FORBIDDEN");
   }
 
@@ -2743,11 +2600,7 @@ export async function uploadConstructionTaskMedia(input: {
     throw new AppError("Task not found", 404, "TASK_NOT_FOUND");
   }
 
-  if (
-    isFieldRole(input.role) &&
-    task.assignedToUserId &&
-    task.assignedToUserId !== input.userId
-  ) {
+  if (isFieldRole(input.role) && task.assignedToUserId && task.assignedToUserId !== input.userId) {
     throw new AppError("You can only add photos to tasks assigned to you.", 403, "FORBIDDEN");
   }
 
@@ -2792,4 +2645,431 @@ export async function uploadConstructionTaskMedia(input: {
   });
 
   return mapConstructionTaskMedia(media);
+}
+
+export async function listConstructionPunchItems(input: SiteInput) {
+  assertConstructionRole(input.role);
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const items = await prisma.constructionPunchItem.findMany({
+    where: {
+      workOrderId: site.id,
+      ...(isFieldRole(input.role)
+        ? {
+            OR: [{ assignedToUserId: input.userId }, { assignedToUserId: null }],
+          }
+        : {}),
+    },
+    orderBy: [{ status: "asc" }, { priority: "desc" }, { createdAt: "desc" }],
+    include: {
+      assignedTo: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return items.map(mapConstructionPunchItem);
+}
+
+export async function createConstructionPunchItem(input: {
+  siteId: string;
+  userId: string;
+  role: string;
+  title: string;
+  trade: string | null;
+  priority: string;
+  assignedToUserId: string | null;
+  notes: string;
+}) {
+  assertConstructionRole(input.role);
+
+  const title = input.title.trim();
+
+  if (!title) {
+    throw new AppError("Punch item title is required.", 400, "INVALID_INPUT");
+  }
+
+  const allowedPriorities = ["low", "normal", "high", "urgent"];
+
+  if (!allowedPriorities.includes(input.priority)) {
+    throw new AppError("Invalid priority.", 400, "INVALID_PRIORITY");
+  }
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const item = await prisma.constructionPunchItem.create({
+    data: {
+      workOrderId: site.id,
+      title,
+      trade: input.trade?.trim() || null,
+      priority: input.priority,
+      assignedToUserId: input.assignedToUserId,
+      notes: input.notes.trim() || null,
+      createdByUserId: input.userId,
+    },
+    include: {
+      assignedTo: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: site.id,
+      eventType: "construction_punch_item_created",
+      label: "Punch Item Created",
+      createdByUserId: input.userId,
+      metadata: {
+        punchItemId: item.id,
+        title: item.title,
+        trade: item.trade,
+        priority: item.priority,
+      },
+    },
+  });
+
+  return mapConstructionPunchItem(item);
+}
+
+export async function updateConstructionPunchItem(input: {
+  punchItemId: string;
+  userId: string;
+  role: string;
+  title?: string;
+  trade?: string;
+  priority?: string;
+  status?: string;
+  assignedToUserId?: string;
+  notes?: string;
+}) {
+  assertConstructionRole(input.role);
+
+  const existing = await prisma.constructionPunchItem.findFirst({
+    where: {
+      id: input.punchItemId,
+      workOrder: {
+        division: "construction",
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Punch item not found.", 404, "PUNCH_ITEM_NOT_FOUND");
+  }
+
+  const adminView = isAdminConstructionRole(input.role);
+
+  if (!adminView && existing.assignedToUserId !== input.userId) {
+    throw new AppError("You can only update punch items assigned to you.", 403, "FORBIDDEN");
+  }
+
+  const allowedPriorities = ["low", "normal", "high", "urgent"];
+  const allowedStatuses = ["open", "in_progress", "completed", "cancelled"];
+
+  if (input.priority && !allowedPriorities.includes(input.priority)) {
+    throw new AppError("Invalid priority.", 400, "INVALID_PRIORITY");
+  }
+
+  if (input.status && !allowedStatuses.includes(input.status)) {
+    throw new AppError("Invalid status.", 400, "INVALID_STATUS");
+  }
+
+  const updated = await prisma.constructionPunchItem.update({
+    where: { id: existing.id },
+    data: {
+      ...(adminView && input.title !== undefined ? { title: input.title.trim() } : {}),
+      ...(adminView && input.trade !== undefined ? { trade: input.trade.trim() || null } : {}),
+      ...(adminView && input.priority !== undefined ? { priority: input.priority } : {}),
+      ...(input.status !== undefined
+        ? {
+            status: input.status,
+            completedAt: input.status === "completed" ? new Date() : null,
+          }
+        : {}),
+      ...(adminView && input.assignedToUserId !== undefined
+        ? { assignedToUserId: input.assignedToUserId || null }
+        : {}),
+      ...(input.notes !== undefined ? { notes: input.notes.trim() || null } : {}),
+    },
+    include: {
+      assignedTo: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      },
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: existing.workOrderId,
+      eventType: "construction_punch_item_updated",
+      label: "Punch Item Updated",
+      createdByUserId: input.userId,
+      metadata: {
+        punchItemId: existing.id,
+        fromStatus: existing.status,
+        toStatus: input.status,
+      },
+    },
+  });
+
+  return mapConstructionPunchItem(updated);
+}
+
+export async function deleteConstructionPunchItem(input: {
+  punchItemId: string;
+  userId: string;
+  role: string;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  const existing = await prisma.constructionPunchItem.findFirst({
+    where: {
+      id: input.punchItemId,
+      workOrder: {
+        division: "construction",
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Punch item not found.", 404, "PUNCH_ITEM_NOT_FOUND");
+  }
+
+  await prisma.constructionPunchItem.delete({
+    where: { id: existing.id },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: existing.workOrderId,
+      eventType: "construction_punch_item_deleted",
+      label: "Punch Item Deleted",
+      createdByUserId: input.userId,
+      metadata: {
+        punchItemId: existing.id,
+        title: existing.title,
+      },
+    },
+  });
+
+  return {
+    id: existing.id,
+    status: "deleted",
+  };
+}
+
+export async function updateConstructionProjectSchedule(input: {
+  projectId: string;
+  userId: string;
+  role: string;
+  scheduledStartAt: string | null;
+  scheduledEndAt: string | null;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  if (!input.scheduledStartAt) {
+    throw new AppError("Scheduled start date is required.", 400, "INVALID_INPUT");
+  }
+
+  const startDate = new Date(input.scheduledStartAt);
+  const endDate = input.scheduledEndAt ? new Date(input.scheduledEndAt) : null;
+
+  if (Number.isNaN(startDate.getTime())) {
+    throw new AppError("Invalid scheduled start date.", 400, "INVALID_DATE");
+  }
+
+  if (endDate && Number.isNaN(endDate.getTime())) {
+    throw new AppError("Invalid scheduled end date.", 400, "INVALID_DATE");
+  }
+
+  const project = await prisma.workOrder.findFirst({
+    where: {
+      id: input.projectId,
+      division: "construction",
+    },
+  });
+
+  if (!project) {
+    throw new AppError("Construction project not found.", 404, "PROJECT_NOT_FOUND");
+  }
+
+  const updated = await prisma.workOrder.update({
+    where: { id: project.id },
+    data: {
+      scheduledStartAt: startDate,
+      scheduledEndAt: endDate,
+      internalStatus:
+        project.internalStatus === "ready_to_schedule"
+          ? "scheduled"
+          : project.internalStatus,
+    },
+    include: {
+      customer: true,
+      address: true,
+      assignments: {
+        where: { isActive: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: project.id,
+      eventType: "construction_project_rescheduled",
+      label: "Project Rescheduled",
+      createdByUserId: input.userId,
+      metadata: {
+        fromStart: project.scheduledStartAt,
+        toStart: startDate,
+        fromEnd: project.scheduledEndAt,
+        toEnd: endDate,
+      },
+    },
+  });
+
+  return mapSite(updated);
+}
+
+export async function listConstructionDailyReports(input: SiteInput) {
+  assertConstructionRole(input.role);
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const reports = await prisma.constructionDailyReport.findMany({
+    where: {
+      workOrderId: site.id,
+    },
+    orderBy: {
+      reportDate: "desc",
+    },
+    include: {
+      submittedBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return reports.map(mapDailyReport);
 }

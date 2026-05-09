@@ -1,80 +1,20 @@
 import { Router } from "express";
 import { authMiddleware } from "../../common/middleware/authMiddleware";
-import * as constructionController from "./construction.controller";
 import { upload } from "../../middleware/upload";
+import * as constructionController from "./construction.controller";
 
 const router = Router();
 
-router.get("/sites", authMiddleware, constructionController.listConstructionSites);
+router.get(
+  "/sites",
+  authMiddleware,
+  constructionController.listConstructionSites,
+);
 
 router.get(
   "/live-crew",
   authMiddleware,
   constructionController.getLiveConstructionCrew,
-);
-
-router.get(
-  "/sites/:id/current-time-entry",
-  authMiddleware,
-  constructionController.getCurrentTimeEntry,
-);
-
-router.get(
-  "/sites/:id/time-entries",
-  authMiddleware,
-  constructionController.listTimeEntriesForSite,
-);
-
-router.post(
-  "/sites/:id/clock-in",
-  authMiddleware,
-  constructionController.clockInToSite,
-);
-
-router.post(
-  "/sites/:id/clock-out",
-  authMiddleware,
-  constructionController.clockOutOfSite,
-);
-
-router.post(
-  "/sites/:id/notes",
-  authMiddleware,
-  constructionController.createConstructionNote,
-);
-
-// construction.routes.ts
-router.get(
-  "/sites/:id/daily-report",
-  authMiddleware,
-  constructionController.getDailyConstructionReport,
-);
-
-
-router.post(
-  "/sites/:id/media/upload",
-  authMiddleware,
-  upload.single("file"),
-  constructionController.uploadConstructionMedia,
-);
-
-router.get(
-  "/sites/:id/activity",
-  authMiddleware,
-  constructionController.getConstructionActivityFeed,
-);
-
-
-router.delete(
-  "/notes/:noteId",
-  authMiddleware,
-  constructionController.deleteConstructionNote,
-);
-
-router.delete(
-  "/media/:mediaId",
-  authMiddleware,
-  constructionController.deleteConstructionMedia,
 );
 
 router.get(
@@ -107,18 +47,6 @@ router.post(
   constructionController.createConstructionProject,
 );
 
-router.post(
-  "/sites/:id/assignments",
-  authMiddleware,
-  constructionController.assignCrewToSite,
-);
-
-router.delete(
-  "/sites/:id/assignments/:assignmentId",
-  authMiddleware,
-  constructionController.removeCrewFromSite,
-);
-
 router.delete(
   "/projects/:id",
   authMiddleware,
@@ -129,6 +57,67 @@ router.patch(
   "/projects/:id/status",
   authMiddleware,
   constructionController.updateConstructionProjectStatus,
+);
+
+router.patch(
+  "/projects/:id/schedule",
+  authMiddleware,
+  constructionController.updateConstructionProjectSchedule,
+);
+
+router.get(
+  "/sites/:id/current-time-entry",
+  authMiddleware,
+  constructionController.getCurrentTimeEntry,
+);
+
+router.get(
+  "/sites/:id/time-entries",
+  authMiddleware,
+  constructionController.listTimeEntriesForSite,
+);
+
+router.post(
+  "/sites/:id/clock-in",
+  authMiddleware,
+  constructionController.clockInToSite,
+);
+
+router.post(
+  "/sites/:id/clock-out",
+  authMiddleware,
+  constructionController.clockOutOfSite,
+);
+
+router.post(
+  "/sites/:id/notes",
+  authMiddleware,
+  constructionController.createConstructionNote,
+);
+
+router.post(
+  "/sites/:id/media/upload",
+  authMiddleware,
+  upload.single("file"),
+  constructionController.uploadConstructionMedia,
+);
+
+router.get(
+  "/sites/:id/activity",
+  authMiddleware,
+  constructionController.getConstructionActivityFeed,
+);
+
+router.post(
+  "/sites/:id/assignments",
+  authMiddleware,
+  constructionController.assignCrewToSite,
+);
+
+router.delete(
+  "/sites/:id/assignments/:assignmentId",
+  authMiddleware,
+  constructionController.removeCrewFromSite,
 );
 
 router.get(
@@ -143,6 +132,54 @@ router.post(
   constructionController.createConstructionTask,
 );
 
+router.get(
+  "/sites/:id/progress",
+  authMiddleware,
+  constructionController.getConstructionProjectProgress,
+);
+
+router.get(
+  "/sites/:id/daily-report",
+  authMiddleware,
+  constructionController.getConstructionDailyReportV2,
+);
+
+router.post(
+  "/sites/:id/daily-report",
+  authMiddleware,
+  constructionController.saveConstructionDailyReport,
+);
+
+router.get(
+  "/sites/:id/daily-reports",
+  authMiddleware,
+  constructionController.listConstructionDailyReports,
+);
+
+router.post(
+  "/sites/:id/daily-report/submit",
+  authMiddleware,
+  constructionController.submitConstructionDailyReport,
+);
+
+router.get(
+  "/sites/:id/punch-items",
+  authMiddleware,
+  constructionController.listConstructionPunchItems,
+);
+
+router.post(
+  "/sites/:id/punch-items",
+  authMiddleware,
+  constructionController.createConstructionPunchItem,
+);
+
+router.get(
+  "/tasks/:taskId/detail",
+  authMiddleware,
+  constructionController.getConstructionTaskDetail,
+);
+
 router.patch(
   "/tasks/:taskId",
   authMiddleware,
@@ -153,18 +190,6 @@ router.delete(
   "/tasks/:taskId",
   authMiddleware,
   constructionController.deleteConstructionTask,
-);
-
-router.get(
-  "/sites/:id/progress",
-  authMiddleware,
-  constructionController.getConstructionProjectProgress,
-);
-
-router.get(
-  "/tasks/:taskId/detail",
-  authMiddleware,
-  constructionController.getConstructionTaskDetail,
 );
 
 router.post(
@@ -180,22 +205,36 @@ router.post(
   constructionController.uploadConstructionTaskMedia,
 );
 
-router.get(
-  "/sites/:id/daily-report",
+router.patch(
+  "/punch-items/:punchItemId",
   authMiddleware,
-  constructionController.getConstructionDailyReportV2,
+  constructionController.updateConstructionPunchItem,
+);
+
+router.delete(
+  "/punch-items/:punchItemId",
+  authMiddleware,
+  constructionController.deleteConstructionPunchItem,
+);
+
+router.delete(
+  "/notes/:noteId",
+  authMiddleware,
+  constructionController.deleteConstructionNote,
+);
+
+router.delete(
+  "/media/:mediaId",
+  authMiddleware,
+  constructionController.deleteConstructionMedia,
 );
 
 
-router.post(
-  "/sites/:id/daily-report/submit",
-  authMiddleware,
-  constructionController.submitConstructionDailyReport,
-);
 
 router.get(
   "/sites/:id",
   authMiddleware,
   constructionController.getConstructionSiteDetail,
 );
+
 export default router;

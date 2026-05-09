@@ -111,24 +111,26 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  company                  Company?              @relation(fields: [companyId], references: [id], onDelete: SetNull)
-  assignments              WorkOrderAssignment[]
-  dispatchMessagesCreated  DispatchMessage[]     @relation("DispatchMessageCreatedBy")
-  dispatchMessagesTargeted DispatchMessage[]     @relation("DispatchMessageTargetUser")
-  dispatchMessageReads     DispatchMessageRead[]
-  workOrderNotes           WorkOrderNote[]
-  locationLogs             UserLocationLog[]
-  locationPings            LocationPing[]
-  teamMessages             TeamMessage[]
+  company                     Company?                     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignments                 WorkOrderAssignment[]
+  dispatchMessagesCreated     DispatchMessage[]            @relation("DispatchMessageCreatedBy")
+  dispatchMessagesTargeted    DispatchMessage[]            @relation("DispatchMessageTargetUser")
+  dispatchMessageReads        DispatchMessageRead[]
+  workOrderNotes              WorkOrderNote[]
+  locationLogs                UserLocationLog[]
+  locationPings               LocationPing[]
+  teamMessages                TeamMessage[]
   teamMessageAcknowledgements TeamMessageAcknowledgement[]
-  pushTokens UserPushToken[]
+  pushTokens                  UserPushToken[]
 
-  constructionTimeEntries ConstructionTimeEntry[]
-  assignedConstructionTasks ConstructionTask[]
+  constructionTimeEntries           ConstructionTimeEntry[]
+  assignedConstructionTasks         ConstructionTask[]
   submittedConstructionDailyReports ConstructionDailyReport[]
 
-  constructionTaskNotesCreated ConstructionTaskNote[]
-  constructionTaskMediaCreated ConstructionTaskMedia[]
+  constructionTaskNotesCreated   ConstructionTaskNote[]
+  constructionTaskMediaCreated   ConstructionTaskMedia[]
+  assignedConstructionPunchItems ConstructionPunchItem[] @relation("ConstructionPunchAssignedTo")
+  createdConstructionPunchItems  ConstructionPunchItem[] @relation("ConstructionPunchCreatedBy")
 
   @@index([companyId])
   @@index([role, isActive])
@@ -242,9 +244,10 @@ model WorkOrder {
   teamMessages     TeamMessage[]
   locationPings    LocationPing[]
 
-  constructionTimeEntries ConstructionTimeEntry[]
-  constructionTasks ConstructionTask[]
+  constructionTimeEntries  ConstructionTimeEntry[]
+  constructionTasks        ConstructionTask[]
   constructionDailyReports ConstructionDailyReport[]
+  constructionPunchItems   ConstructionPunchItem[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
@@ -360,7 +363,6 @@ model HotShotDetails {
   acceptedAt        DateTime?
   pickedUpAt        DateTime?
   deliveredAt       DateTime?
-  
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 }
@@ -448,22 +450,20 @@ model UserLocationLog {
 }
 
 model TeamMessage {
-  id        String   @id @default(uuid())
-  teamId    String?
-  userId    String
-  body      String
+  id                String   @id @default(uuid())
+  teamId            String?
+  userId            String
+  body              String
   targetWorkOrderId String?
-  createdAt DateTime @default(now())
+  createdAt         DateTime @default(now())
 
-  team Team? @relation(fields: [teamId], references: [id], onDelete: SetNull)
-  user User  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  targetWorkOrder   WorkOrder? @relation(fields: [targetWorkOrderId], references: [id], onDelete: SetNull)
+  team            Team?      @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  user            User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  targetWorkOrder WorkOrder? @relation(fields: [targetWorkOrderId], references: [id], onDelete: SetNull)
 
   acknowledgements TeamMessageAcknowledgement[]
 
-
-@@index([targetWorkOrderId])
-
+  @@index([targetWorkOrderId])
   @@index([teamId, createdAt])
 }
 
@@ -473,32 +473,30 @@ model TeamMessageAcknowledgement {
   userId        String
   createdAt     DateTime @default(now())
 
-  teamMessage   TeamMessage @relation(fields: [teamMessageId], references: [id], onDelete: Cascade)
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-
+  teamMessage TeamMessage @relation(fields: [teamMessageId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([teamMessageId, userId])
 }
 
 model ConstructionTimeEntry {
-  id          String    @id @default(uuid())
+  id          String @id @default(uuid())
   workOrderId String
   userId      String
 
-  clockInAt   DateTime
-  clockOutAt  DateTime?
+  clockInAt  DateTime
+  clockOutAt DateTime?
 
   clockInLat  Float?
   clockInLng  Float?
   clockOutLat Float?
   clockOutLng Float?
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
-  user        User      @relation(fields: [userId], references: [id])
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  user      User      @relation(fields: [userId], references: [id])
 
   @@index([workOrderId])
   @@index([userId])
@@ -506,22 +504,22 @@ model ConstructionTimeEntry {
 }
 
 model ConstructionTask {
-  id          String   @id @default(uuid())
-  workOrderId String
-  title       String
-  trade       String
-  status      String   @default("todo")
+  id               String                  @id @default(uuid())
+  workOrderId      String
+  title            String
+  trade            String
+  status           String                  @default("todo")
   assignedToUserId String?
-  dueDate     DateTime?
-  notes       String?
-  notesList ConstructionTaskNote[]
-  media     ConstructionTaskMedia[]
+  dueDate          DateTime?
+  notes            String?
+  notesList        ConstructionTaskNote[]
+  media            ConstructionTaskMedia[]
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id])
-  assignedTo   User?     @relation(fields: [assignedToUserId], references: [id])
+  workOrder  WorkOrder @relation(fields: [workOrderId], references: [id])
+  assignedTo User?     @relation(fields: [assignedToUserId], references: [id])
 
   @@index([workOrderId])
   @@index([assignedToUserId])
@@ -530,53 +528,53 @@ model ConstructionTask {
 }
 
 model ConstructionTaskNote {
-  id        String   @id @default(uuid())
-  taskId    String
-  body      String
+  id              String   @id @default(uuid())
+  taskId          String
+  body            String
   createdByUserId String?
-  createdAt DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   task      ConstructionTask @relation(fields: [taskId], references: [id])
-  createdBy User? @relation(fields: [createdByUserId], references: [id])
+  createdBy User?            @relation(fields: [createdByUserId], references: [id])
 
   @@index([taskId])
 }
 
 model ConstructionTaskMedia {
-  id              String   @id @default(uuid())
-  taskId          String
-  mediaType       String   @default("photo")
-  storageProvider String
-  objectKey       String
-  bucketName      String
-  mimeType        String?
+  id               String    @id @default(uuid())
+  taskId           String
+  mediaType        String    @default("photo")
+  storageProvider  String
+  objectKey        String
+  bucketName       String
+  mimeType         String?
   originalFileName String?
-  fileSizeBytes   Int?
-  createdByUserId String?
-  deletedAt       DateTime?
-  deletedByUserId String?
-  createdAt       DateTime @default(now())
+  fileSizeBytes    Int?
+  createdByUserId  String?
+  deletedAt        DateTime?
+  deletedByUserId  String?
+  createdAt        DateTime  @default(now())
 
   task      ConstructionTask @relation(fields: [taskId], references: [id])
-  createdBy User? @relation(fields: [createdByUserId], references: [id])
+  createdBy User?            @relation(fields: [createdByUserId], references: [id])
 
   @@index([taskId])
   @@index([deletedAt])
 }
 
 model ConstructionDailyReport {
-  id              String   @id @default(uuid())
-  workOrderId     String
-  reportDate      DateTime
-  workCompleted   String?
-  blockers        String?
-  materialsUsed   String?
-  safetyNotes     String?
-  weatherNotes    String?
+  id                String    @id @default(uuid())
+  workOrderId       String
+  reportDate        DateTime
+  workCompleted     String?
+  blockers          String?
+  materialsUsed     String?
+  safetyNotes       String?
+  weatherNotes      String?
   submittedByUserId String?
-  submittedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  submittedAt       DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id])
   submittedBy User?     @relation(fields: [submittedByUserId], references: [id])
@@ -584,4 +582,27 @@ model ConstructionDailyReport {
   @@unique([workOrderId, reportDate])
   @@index([workOrderId])
   @@index([reportDate])
+}
+
+model ConstructionPunchItem {
+  id               String    @id @default(uuid())
+  workOrderId      String
+  title            String
+  trade            String?
+  priority         String    @default("normal")
+  status           String    @default("open")
+  notes            String?
+  assignedToUserId String?
+  createdByUserId  String?
+  completedAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  workOrder  WorkOrder @relation(fields: [workOrderId], references: [id])
+  assignedTo User?     @relation("ConstructionPunchAssignedTo", fields: [assignedToUserId], references: [id])
+  createdBy  User?     @relation("ConstructionPunchCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([workOrderId])
+  @@index([status])
+  @@index([assignedToUserId])
 }
