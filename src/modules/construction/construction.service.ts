@@ -1995,10 +1995,14 @@ export async function getConstructionCrewAvailability(input: {
   const assignmentsByUserId = new Map<string, any[]>();
 
   for (const assignment of assignedWork) {
-    const existing = assignmentsByUserId.get(assignment.userId) || [];
-    existing.push(assignment);
-    assignmentsByUserId.set(assignment.userId, existing);
-  }
+  if (!assignment.userId) continue;
+
+  const userId = assignment.userId;
+  const existing = assignmentsByUserId.get(userId) || [];
+
+  existing.push(assignment);
+  assignmentsByUserId.set(userId, existing);
+}
 
   return crew.map((user) => {
     const assignments = assignmentsByUserId.get(user.id) || [];
