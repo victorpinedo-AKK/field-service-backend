@@ -229,6 +229,25 @@ router.delete(
   constructionController.deleteConstructionMedia,
 );
 
+router.get(
+  "/sites/:id/inspections",
+  authMiddleware,
+  constructionController.listConstructionInspections,
+);
+
+router.post(
+  "/sites/:id/inspections",
+  authMiddleware,
+  constructionController.createConstructionInspection,
+);
+
+router.patch(
+  "/inspections/:inspectionId",
+  authMiddleware,
+  constructionController.updateConstructionInspection,
+);
+
+
 
 
 router.get(

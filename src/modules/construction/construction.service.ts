@@ -3081,3 +3081,252 @@ export async function listConstructionDailyReports(input: SiteInput) {
 
   return reports.map(mapDailyReport);
 }
+
+function mapConstructionInspection(inspection: any) {
+  return {
+    id: inspection.id,
+    work_order_id: inspection.workOrderId,
+    inspection_type: inspection.inspectionType,
+    status: inspection.status,
+    result: inspection.result,
+    notes: inspection.notes,
+    failed_reason: inspection.failedReason,
+    completed_at: inspection.completedAt,
+    created_at: inspection.createdAt,
+    updated_at: inspection.updatedAt,
+    inspector: inspection.inspector
+      ? {
+          id: inspection.inspector.id,
+          first_name: inspection.inspector.firstName,
+          last_name: inspection.inspector.lastName,
+          role: inspection.inspector.role,
+          email: inspection.inspector.email,
+        }
+      : null,
+  };
+}
+
+export async function listConstructionInspections(input: SiteInput) {
+  assertConstructionRole(input.role);
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const inspections = await prisma.constructionInspection.findMany({
+    where: {
+      workOrderId: site.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      inspector: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  return inspections.map(mapConstructionInspection);
+}
+
+export async function createConstructionInspection(input: {
+  siteId: string;
+  userId: string;
+  role: string;
+  inspectionType: string;
+  notes: string;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  const allowedTypes = [
+    "rough_in",
+    "final_walkthrough",
+    "safety",
+    "quality",
+    "customer_walkthrough",
+  ];
+
+  if (!allowedTypes.includes(input.inspectionType)) {
+    throw new AppError("Invalid inspection type.", 400, "INVALID_INSPECTION_TYPE");
+  }
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const inspection = await prisma.constructionInspection.create({
+    data: {
+      workOrderId: site.id,
+      inspectionType: input.inspectionType,
+      status: "pending",
+      inspectorUserId: input.userId,
+      notes: input.notes.trim() || null,
+    },
+    include: {
+      inspector: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          role: true,
+          email: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: site.id,
+      eventType: "construction_inspection_created",
+      label: "Inspection Created",
+      createdByUserId: input.userId,
+      metadata: {
+        inspectionId: inspection.id,
+        inspectionType: inspection.inspectionType,
+      },
+    },
+  });
+
+  return mapConstructionInspection(inspection);
+}
+
+export async function updateConstructionInspection(input: {
+  inspectionId: string;
+  userId: string;
+  role: string;
+  status?: string;
+  result?: string;
+  notes?: string;
+  failedReason?: string;
+  createPunchItem?: boolean;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  const existing = await prisma.constructionInspection.findFirst({
+    where: {
+      id: input.inspectionId,
+      workOrder: {
+        division: "construction",
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Inspection not found.", 404, "INSPECTION_NOT_FOUND");
+  }
+
+  const allowedStatuses = ["pending", "in_progress", "completed", "cancelled"];
+  const allowedResults = ["pass", "fail", "needs_recheck"];
+
+  if (input.status && !allowedStatuses.includes(input.status)) {
+    throw new AppError("Invalid inspection status.", 400, "INVALID_STATUS");
+  }
+
+  if (input.result && !allowedResults.includes(input.result)) {
+    throw new AppError("Invalid inspection result.", 400, "INVALID_RESULT");
+  }
+
+  const shouldComplete =
+    input.status === "completed" ||
+    input.result === "pass" ||
+    input.result === "fail" ||
+    input.result === "needs_recheck";
+
+  const updated = await prisma.$transaction(async (tx) => {
+    const inspection = await tx.constructionInspection.update({
+      where: { id: existing.id },
+      data: {
+        ...(input.status !== undefined ? { status: input.status } : {}),
+        ...(input.result !== undefined ? { result: input.result } : {}),
+        ...(input.notes !== undefined
+          ? { notes: input.notes.trim() || null }
+          : {}),
+        ...(input.failedReason !== undefined
+          ? { failedReason: input.failedReason.trim() || null }
+          : {}),
+        ...(shouldComplete ? { status: "completed", completedAt: new Date() } : {}),
+        inspectorUserId: input.userId,
+      },
+      include: {
+        inspector: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            role: true,
+            email: true,
+          },
+        },
+      },
+    });
+
+    if (input.result === "fail" && input.createPunchItem) {
+      await tx.constructionPunchItem.create({
+        data: {
+          workOrderId: existing.workOrderId,
+          title: "Failed inspection follow-up",
+          trade: "General",
+          priority: "high",
+          status: "open",
+          notes: input.failedReason?.trim() || "Inspection failed. Follow-up required.",
+          createdByUserId: input.userId,
+        },
+      });
+    }
+
+    await tx.workOrderEvent.create({
+      data: {
+        workOrderId: existing.workOrderId,
+        eventType: "construction_inspection_updated",
+        label: "Inspection Updated",
+        createdByUserId: input.userId,
+        metadata: {
+          inspectionId: existing.id,
+          status: inspection.status,
+          result: inspection.result,
+          createPunchItem: !!input.createPunchItem,
+        },
+      },
+    });
+
+    return inspection;
+  });
+
+  return mapConstructionInspection(updated);
+}

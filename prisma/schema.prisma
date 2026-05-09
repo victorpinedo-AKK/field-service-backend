@@ -126,7 +126,8 @@ model User {
   constructionTimeEntries           ConstructionTimeEntry[]
   assignedConstructionTasks         ConstructionTask[]
   submittedConstructionDailyReports ConstructionDailyReport[]
-
+  
+  constructionInspectionsInspected ConstructionInspection[] @relation("ConstructionInspectionInspector")
   constructionTaskNotesCreated   ConstructionTaskNote[]
   constructionTaskMediaCreated   ConstructionTaskMedia[]
   assignedConstructionPunchItems ConstructionPunchItem[] @relation("ConstructionPunchAssignedTo")
@@ -248,6 +249,7 @@ model WorkOrder {
   constructionTasks        ConstructionTask[]
   constructionDailyReports ConstructionDailyReport[]
   constructionPunchItems   ConstructionPunchItem[]
+  constructionInspections ConstructionInspection[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
@@ -605,4 +607,25 @@ model ConstructionPunchItem {
   @@index([workOrderId])
   @@index([status])
   @@index([assignedToUserId])
+}
+
+model ConstructionInspection {
+  id              String   @id @default(uuid())
+  workOrderId     String
+  inspectionType  String   @default("final_walkthrough")
+  status          String   @default("pending")
+  result          String?
+  inspectorUserId String?
+  notes           String?
+  failedReason    String?
+  completedAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  inspector User?     @relation("ConstructionInspectionInspector", fields: [inspectorUserId], references: [id])
+
+  @@index([workOrderId])
+  @@index([status])
+  @@index([inspectorUserId])
 }

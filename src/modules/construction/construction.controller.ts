@@ -1030,3 +1030,97 @@ export async function listConstructionDailyReports(
     next(error);
   }
 }
+
+export async function listConstructionInspections(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.listConstructionInspections({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionInspection(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionInspection({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      inspectionType:
+        typeof req.body?.inspection_type === "string"
+          ? req.body.inspection_type
+          : "final_walkthrough",
+      notes: String(req.body?.notes || ""),
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateConstructionInspection(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.updateConstructionInspection({
+      inspectionId: String(req.params.inspectionId),
+      userId: user.id,
+      role: user.role,
+      status:
+        typeof req.body?.status === "string" ? req.body.status : undefined,
+      result:
+        typeof req.body?.result === "string" ? req.body.result : undefined,
+      notes:
+        typeof req.body?.notes === "string" ? req.body.notes : undefined,
+      failedReason:
+        typeof req.body?.failed_reason === "string"
+          ? req.body.failed_reason
+          : undefined,
+      createPunchItem:
+        typeof req.body?.create_punch_item === "boolean"
+          ? req.body.create_punch_item
+          : false,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
