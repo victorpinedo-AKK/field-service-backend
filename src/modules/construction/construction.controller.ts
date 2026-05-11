@@ -1124,3 +1124,172 @@ export async function updateConstructionInspection(
     next(error);
   }
 }
+
+export async function getConstructionCloseoutStatus(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.getConstructionCloseoutStatus({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function completeConstructionProject(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.completeConstructionProject({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listConstructionCustomerSignoffs(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.listConstructionCustomerSignoffs({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: { total: result.length },
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function createConstructionCustomerSignoff(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.createConstructionCustomerSignoff({
+      siteId: String(req.params.id),
+      userId: user.id,
+      role: user.role,
+      customerName: String(req.body?.customer_name || ""),
+      customerEmail:
+        typeof req.body?.customer_email === "string"
+          ? req.body.customer_email
+          : undefined,
+      agreedWorkSummary: String(req.body?.agreed_work_summary || ""),
+      customerNotes:
+        typeof req.body?.customer_notes === "string"
+          ? req.body.customer_notes
+          : undefined,
+    });
+
+    return res.status(201).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateConstructionCustomerSignoffSignature(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result =
+      await constructionService.updateConstructionCustomerSignoffSignature({
+        signoffId: String(req.params.signoffId),
+        userId: user.id,
+        role: user.role,
+        signatureImageUrl: String(req.body?.signature_image_url || ""),
+        signatureImageKey:
+          typeof req.body?.signature_image_key === "string"
+            ? req.body.signature_image_key
+            : undefined,
+      });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateConstructionCustomerSignoffPdf(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction,
+) {
+  try {
+    const user = requireUser(req);
+
+    const result = await constructionService.updateConstructionCustomerSignoffPdf({
+      signoffId: String(req.params.signoffId),
+      userId: user.id,
+      role: user.role,
+      pdfUrl: String(req.body?.pdf_url || ""),
+      pdfKey:
+        typeof req.body?.pdf_key === "string" ? req.body.pdf_key : undefined,
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+      meta: {},
+      error: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+}

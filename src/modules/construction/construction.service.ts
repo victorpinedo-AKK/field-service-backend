@@ -3330,3 +3330,425 @@ export async function updateConstructionInspection(input: {
 
   return mapConstructionInspection(updated);
 }
+
+export async function getConstructionCloseoutStatus(input: SiteInput) {
+  assertConstructionRole(input.role);
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: {
+      id: true,
+      internalStatus: true,
+    },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const [tasks, punchItems, inspections] = await Promise.all([
+    prisma.constructionTask.findMany({
+      where: { workOrderId: site.id },
+      select: { id: true, status: true },
+    }),
+    prisma.constructionPunchItem.findMany({
+      where: { workOrderId: site.id },
+      select: { id: true, status: true },
+    }),
+    prisma.constructionInspection.findMany({
+      where: { workOrderId: site.id },
+      select: {
+        id: true,
+        inspectionType: true,
+        status: true,
+        result: true,
+      },
+    }),
+  ]);
+
+  const openTasks = tasks.filter((task) => task.status !== "completed");
+  const openPunchItems = punchItems.filter(
+    (item) => !["completed", "cancelled"].includes(item.status),
+  );
+
+  const passedFinalInspection = inspections.some(
+    (inspection) =>
+      inspection.inspectionType === "final_walkthrough" &&
+      inspection.status === "completed" &&
+      inspection.result === "pass",
+  );
+
+  const readyForCloseout =
+    openTasks.length === 0 &&
+    openPunchItems.length === 0 &&
+    passedFinalInspection;
+
+  return {
+    work_order_id: site.id,
+    project_status: site.internalStatus,
+    ready_for_closeout: readyForCloseout,
+    requirements: {
+      tasks_complete: openTasks.length === 0,
+      punch_items_closed: openPunchItems.length === 0,
+      final_inspection_passed: passedFinalInspection,
+    },
+    counts: {
+      total_tasks: tasks.length,
+      open_tasks: openTasks.length,
+      total_punch_items: punchItems.length,
+      open_punch_items: openPunchItems.length,
+      total_inspections: inspections.length,
+    },
+  };
+}
+
+export async function completeConstructionProject(input: SiteInput) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  const closeout = await getConstructionCloseoutStatus(input);
+
+  if (!closeout.ready_for_closeout) {
+    throw new AppError(
+      "Project is not ready for closeout.",
+      400,
+      "NOT_READY_FOR_CLOSEOUT",
+    );
+  }
+
+  const updated = await prisma.workOrder.update({
+    where: { id: input.siteId },
+    data: {
+      internalStatus: "completed",
+      isLocked: true,
+    },
+    include: {
+      customer: true,
+      address: true,
+      assignments: {
+        where: { isActive: true },
+        include: {
+          user: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: input.siteId,
+      eventType: "construction_project_completed",
+      label: "Project Completed",
+      createdByUserId: input.userId,
+      metadata: {
+        closeout,
+      },
+    },
+  });
+
+  return {
+    site: mapSite(updated),
+    closeout,
+  };
+}
+
+function mapConstructionCustomerSignoff(signoff: any) {
+  return {
+    id: signoff.id,
+    work_order_id: signoff.workOrderId,
+    signoff_type: signoff.signoffType,
+    customer_name: signoff.customerName,
+    customer_email: signoff.customerEmail,
+    agreed_work_summary: signoff.agreedWorkSummary,
+    customer_notes: signoff.customerNotes,
+    signature_image_url: signoff.signatureImageUrl,
+    signature_image_key: signoff.signatureImageKey,
+    pdf_url: signoff.pdfUrl,
+    pdf_key: signoff.pdfKey,
+    signed_at: signoff.signedAt,
+    created_at: signoff.createdAt,
+    updated_at: signoff.updatedAt,
+    created_by: signoff.createdBy
+    
+      ? {
+          id: signoff.createdBy.id,
+          first_name: signoff.createdBy.firstName,
+          last_name: signoff.createdBy.lastName,
+          email: signoff.createdBy.email,
+          role: signoff.createdBy.role,
+        }
+      : null,
+  };
+}
+
+export async function listConstructionCustomerSignoffs(input: SiteInput) {
+  assertConstructionRole(input.role);
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+      ...(isFieldRole(input.role)
+        ? {
+            assignments: {
+              some: {
+                userId: input.userId,
+                isActive: true,
+              },
+            },
+          }
+        : {}),
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const signoffs = await prisma.constructionCustomerSignoff.findMany({
+    where: {
+      workOrderId: site.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  return signoffs.map(mapConstructionCustomerSignoff);
+}
+
+export async function createConstructionCustomerSignoff(input: {
+  siteId: string;
+  userId: string;
+  role: string;
+  customerName: string;
+  customerEmail?: string;
+  agreedWorkSummary: string;
+  customerNotes?: string;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  if (!input.customerName.trim()) {
+    throw new AppError("Customer name is required.", 400, "CUSTOMER_NAME_REQUIRED");
+  }
+
+  if (!input.agreedWorkSummary.trim()) {
+    throw new AppError(
+      "Agreed work summary is required.",
+      400,
+      "AGREED_WORK_SUMMARY_REQUIRED",
+    );
+  }
+
+  const site = await prisma.workOrder.findFirst({
+    where: {
+      id: input.siteId,
+      division: "construction",
+    },
+    select: { id: true },
+  });
+
+  if (!site) {
+    throw new AppError("Construction site not found", 404, "SITE_NOT_FOUND");
+  }
+
+  const signoff = await prisma.constructionCustomerSignoff.create({
+    data: {
+      workOrderId: site.id,
+      customerName: input.customerName.trim(),
+      customerEmail: input.customerEmail?.trim() || null,
+      agreedWorkSummary: input.agreedWorkSummary.trim(),
+      customerNotes: input.customerNotes?.trim() || null,
+      createdByUserId: input.userId,
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: site.id,
+      eventType: "construction_customer_signoff_created",
+      label: "Customer Sign-Off Created",
+      createdByUserId: input.userId,
+      metadata: {
+        signoffId: signoff.id,
+        customerName: signoff.customerName,
+      },
+    },
+  });
+
+  return mapConstructionCustomerSignoff(signoff);
+}
+
+export async function updateConstructionCustomerSignoffSignature(input: {
+  signoffId: string;
+  userId: string;
+  role: string;
+  signatureImageUrl: string;
+  signatureImageKey?: string;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  if (!input.signatureImageUrl.trim()) {
+    throw new AppError(
+      "Signature image URL is required.",
+      400,
+      "SIGNATURE_IMAGE_URL_REQUIRED",
+    );
+  }
+
+  const existing = await prisma.constructionCustomerSignoff.findFirst({
+    where: {
+      id: input.signoffId,
+      workOrder: {
+        division: "construction",
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Customer sign-off not found.", 404, "SIGNOFF_NOT_FOUND");
+  }
+
+  const updated = await prisma.constructionCustomerSignoff.update({
+    where: { id: existing.id },
+    data: {
+      signatureImageUrl: input.signatureImageUrl.trim(),
+      signatureImageKey: input.signatureImageKey?.trim() || null,
+      signedAt: new Date(),
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: existing.workOrderId,
+      eventType: "construction_customer_signoff_signed",
+      label: "Customer Sign-Off Signed",
+      createdByUserId: input.userId,
+      metadata: {
+        signoffId: existing.id,
+        signatureImageUrl: updated.signatureImageUrl,
+      },
+    },
+  });
+
+  return mapConstructionCustomerSignoff(updated);
+}
+
+export async function updateConstructionCustomerSignoffPdf(input: {
+  signoffId: string;
+  userId: string;
+  role: string;
+  pdfUrl: string;
+  pdfKey?: string;
+}) {
+  assertConstructionRole(input.role);
+  assertAdminConstructionRole(input.role);
+
+  if (!input.pdfUrl.trim()) {
+    throw new AppError("PDF URL is required.", 400, "PDF_URL_REQUIRED");
+  }
+
+  const existing = await prisma.constructionCustomerSignoff.findFirst({
+    where: {
+      id: input.signoffId,
+      workOrder: {
+        division: "construction",
+      },
+    },
+  });
+
+  if (!existing) {
+    throw new AppError("Customer sign-off not found.", 404, "SIGNOFF_NOT_FOUND");
+  }
+
+  const updated = await prisma.constructionCustomerSignoff.update({
+    where: { id: existing.id },
+    data: {
+      pdfUrl: input.pdfUrl.trim(),
+      pdfKey: input.pdfKey?.trim() || null,
+    },
+    include: {
+      createdBy: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
+
+  await prisma.workOrderEvent.create({
+    data: {
+      workOrderId: existing.workOrderId,
+      eventType: "construction_customer_signoff_pdf_saved",
+      label: "Customer Sign-Off PDF Saved",
+      createdByUserId: input.userId,
+      metadata: {
+        signoffId: existing.id,
+        pdfUrl: updated.pdfUrl,
+      },
+    },
+  });
+
+  return mapConstructionCustomerSignoff(updated);
+}

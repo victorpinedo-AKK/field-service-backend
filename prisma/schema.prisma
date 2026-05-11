@@ -126,12 +126,13 @@ model User {
   constructionTimeEntries           ConstructionTimeEntry[]
   assignedConstructionTasks         ConstructionTask[]
   submittedConstructionDailyReports ConstructionDailyReport[]
-  
-  constructionInspectionsInspected ConstructionInspection[] @relation("ConstructionInspectionInspector")
-  constructionTaskNotesCreated   ConstructionTaskNote[]
-  constructionTaskMediaCreated   ConstructionTaskMedia[]
-  assignedConstructionPunchItems ConstructionPunchItem[] @relation("ConstructionPunchAssignedTo")
-  createdConstructionPunchItems  ConstructionPunchItem[] @relation("ConstructionPunchCreatedBy")
+
+  constructionInspectionsInspected    ConstructionInspection[]      @relation("ConstructionInspectionInspector")
+  constructionTaskNotesCreated        ConstructionTaskNote[]
+  constructionTaskMediaCreated        ConstructionTaskMedia[]
+  assignedConstructionPunchItems      ConstructionPunchItem[]       @relation("ConstructionPunchAssignedTo")
+  createdConstructionPunchItems       ConstructionPunchItem[]       @relation("ConstructionPunchCreatedBy")
+  constructionCustomerSignoffsCreated ConstructionCustomerSignoff[] @relation("ConstructionCustomerSignoffCreatedBy")
 
   @@index([companyId])
   @@index([role, isActive])
@@ -245,11 +246,12 @@ model WorkOrder {
   teamMessages     TeamMessage[]
   locationPings    LocationPing[]
 
-  constructionTimeEntries  ConstructionTimeEntry[]
-  constructionTasks        ConstructionTask[]
-  constructionDailyReports ConstructionDailyReport[]
-  constructionPunchItems   ConstructionPunchItem[]
-  constructionInspections ConstructionInspection[]
+  constructionTimeEntries      ConstructionTimeEntry[]
+  constructionTasks            ConstructionTask[]
+  constructionDailyReports     ConstructionDailyReport[]
+  constructionPunchItems       ConstructionPunchItem[]
+  constructionInspections      ConstructionInspection[]
+  constructionCustomerSignoffs ConstructionCustomerSignoff[]
 
   @@index([division, internalStatus, scheduledStartAt])
   @@index([jobType, division])
@@ -610,17 +612,17 @@ model ConstructionPunchItem {
 }
 
 model ConstructionInspection {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   workOrderId     String
-  inspectionType  String   @default("final_walkthrough")
-  status          String   @default("pending")
+  inspectionType  String    @default("final_walkthrough")
+  status          String    @default("pending")
   result          String?
   inspectorUserId String?
   notes           String?
   failedReason    String?
   completedAt     DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
   inspector User?     @relation("ConstructionInspectionInspector", fields: [inspectorUserId], references: [id])
@@ -628,4 +630,30 @@ model ConstructionInspection {
   @@index([workOrderId])
   @@index([status])
   @@index([inspectorUserId])
+}
+
+model ConstructionCustomerSignoff {
+  id          String @id @default(uuid())
+  workOrderId String
+
+  signoffType String @default("completion_signoff")
+
+  customerName      String
+  customerEmail     String?
+  agreedWorkSummary String
+  customerNotes     String?
+  signatureImageUrl String?
+  signatureImageKey String?
+  pdfUrl            String?
+  pdfKey            String?
+  signedAt          DateTime?
+  createdByUserId   String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  workOrder WorkOrder @relation(fields: [workOrderId], references: [id])
+  createdBy User?     @relation("ConstructionCustomerSignoffCreatedBy", fields: [createdByUserId], references: [id])
+
+  @@index([workOrderId])
+  @@index([createdByUserId])
 }

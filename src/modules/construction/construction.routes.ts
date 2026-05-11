@@ -247,6 +247,43 @@ router.patch(
   constructionController.updateConstructionInspection,
 );
 
+router.get(
+  "/sites/:id/closeout",
+  authMiddleware,
+  constructionController.getConstructionCloseoutStatus,
+);
+
+router.post(
+  "/sites/:id/complete",
+  authMiddleware,
+  constructionController.completeConstructionProject,
+);
+
+router.get(
+  "/sites/:id/signoffs",
+  authMiddleware,
+  constructionController.listConstructionCustomerSignoffs,
+);
+
+router.post(
+  "/sites/:id/signoffs",
+  authMiddleware,
+  constructionController.createConstructionCustomerSignoff,
+);
+
+router.patch(
+  "/signoffs/:signoffId/signature",
+  authMiddleware,
+  constructionController.updateConstructionCustomerSignoffSignature,
+);
+
+router.patch(
+  "/signoffs/:signoffId/pdf",
+  authMiddleware,
+  constructionController.updateConstructionCustomerSignoffPdf,
+);
+
+
 
 
 
